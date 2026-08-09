@@ -1,0 +1,19 @@
+line-length = 100
+target-version = "py311"
+extend-exclude = ["docs", ".venv", "node_modules"]
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "PT"]
+ignore = [
+  "E501",   # line length handled by formatter
+  "B008",   # FastAPI Depends() in defaults is idiomatic
+  "SIM108", # ternary may hurt readability for guards
+]
+
+[lint.per-file-ignores]
+"tests/**" = ["B011"]   # assert False acceptable in tests
+"cybersim/simulation/core/rng.py" = ["S311"]  # seeded RNG by design
+
+[format]
+docstring-code-format = true
+indent-style = "space"

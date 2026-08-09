@@ -1,0 +1,23 @@
+[
+  {
+    "id": "CVE-2021-44228",
+    "cwe": ["CWE-502"],
+    "description": "Apache Log4j2 JNDI features used in configuration allow an attacker to perform remote code execution via crafted log messages.",
+    "cvss": 10.0,
+    "references": ["https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-44228"]
+  },
+  {
+    "id": "CVE-2022-22965",
+    "cwe": ["CWE-94"],
+    "description": "Spring Framework remote code execution via unsafe binding of request parameters to an internal class.",
+    "cvss": 9.8,
+    "references": []
+  },
+  {
+    "id": "CVE-2023-49070",
+    "cwe": ["CWE-502"],
+    "description": "Apache OFBiz deserialization vulnerability enabling remote code execution.",
+    "cvss": 9.8,
+    "references": []
+  }
+]

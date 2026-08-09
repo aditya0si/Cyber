@@ -1,0 +1,38 @@
+id: mission.finbank_breach
+title: "Mission: Protect FinBank"
+subtitle: "5 servers · 3 APIs · 1 database · 200 users"
+simulator: web
+scenario_id: web.app.sqli_login
+duration_sec: 360
+objectives:
+  - id: detect_injection
+    title: "Detect SQL injection within 90s"
+    kind: detection_within
+    params: { threat_class: sql_injection, severity: high, within_sec: 90 }
+    points: 25
+  - id: identify_chain
+    title: "Identify the full attack chain to data"
+    kind: detection_covers_stages
+    params: { stages: [initial_access, credential_access, exfiltration] }
+    points: 25
+  - id: contain_in_time
+    title: "Contain the attacker before data exfiltration"
+    kind: action_executed_before_event
+    params:
+      action_ids: [block_source_ip, disable_endpoint, quarantine_host]
+      stop_event_subtype: data_exfil_indicator
+    points: 30
+  - id: minimal_collateral
+    title: "Avoid over-blocking benign users (≤10% collateral)"
+    kind: benign_collateral_below
+    params: { max_pct: 10 }
+    points: 10
+  - id: analyst_trust
+    title: "Execute every response from analyst evidence"
+    kind: every_executed_action_backed_by_detection
+    points: 10
+scoring:
+  max_score: 100
+sharing:
+  public_default: true
+status: active

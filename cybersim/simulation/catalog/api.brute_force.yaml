@@ -1,0 +1,25 @@
+id: api.brute_force
+simulator: api
+display:
+  title: "API abuse: brute-force on /api/auth/login"
+  blurb: "Credential stuffing bursts against the auth endpoint."
+  category: api_abuse
+  difficulty: beginner
+  duration_sec: 180
+environment: api.finbank
+adversary:
+  origin: { zone: internet, ip: 203.0.113.42 }
+  skill: beginner
+  kill_chain: api_chain_brute
+  intent: credential_access
+params_default:
+  auth_failure_rate: 1.0
+expected_detections:
+  - threat_class: credential_brute_force
+    min_severity: medium
+    within_sec: 120
+scoring:
+  speed_weight: 0.3
+  correctness_weight: 0.5
+  containment_weight: 0.2
+status: active

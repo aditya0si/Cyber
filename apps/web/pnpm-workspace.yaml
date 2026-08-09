@@ -1,0 +1,15 @@
+# pnpm settings (pnpm.io/settings). Lives next to package.json.
+# In pnpm 11+, per-package build approval lives here as an `allowBuilds` map.
+# Approving unrs-resolver (brought in by eslint-import-resolver-typescript) and
+# esbuild silences ERR_PNPM_IGNORED_BUILDS; verifyDepsBeforeRun=false stops
+# `pnpm run` from aborting on ignored-but-trivial build scripts.
+onlyBuiltDependencies:
+  - unrs-resolver
+  - esbuild
+  - "@parcel/watcher"
+
+allowBuilds:
+  unrs-resolver: true
+  esbuild: true
+
+verifyDepsBeforeRun: false

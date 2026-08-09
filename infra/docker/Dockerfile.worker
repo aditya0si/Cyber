@@ -1,0 +1,6 @@
+# syntax=docker/dockerfile:1.7
+FROM cybersim-api:dev AS base
+# The worker shares the api build; only entrypoint differs.
+USER cybersim
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["celery", "-A", "cybersim.platform.queues", "worker", "-Q", "sims,analyst,ops", "--concurrency=2", "--loglevel=info"]

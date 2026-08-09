@@ -1,0 +1,123 @@
+/*
+ * CyberSim AI design tokens — SINGLE SOURCE OF TRUTH (docs/02 §3).
+ * Do NOT add hex literals outside this file (forbid_raw_hex_in_web.py pre-commit guard).
+ */
+
+:root,
+:root[data-theme="dark"] {
+  --cs-neutral-0: #0a0a0b;
+  --cs-neutral-1: #0f1011;
+  --cs-neutral-2: #16181b;
+  --cs-neutral-3: #1c1f23;
+  --cs-neutral-4: #24282d;
+  --cs-neutral-5: #2e3339;
+  --cs-neutral-6: #3a4047;
+
+  --cs-border-subtle: rgba(255, 255, 255, 0.06);
+  --cs-border-default: rgba(255, 255, 255, 0.1);
+  --cs-border-strong: rgba(255, 255, 255, 0.16);
+  --cs-border-focus: rgba(255, 255, 255, 0.32);
+
+  --cs-text-primary: #f4f4f5;
+  --cs-text-secondary: #b8bcc2;
+  --cs-text-tertiary: #8a9098;
+  --cs-text-quaternary: #626a72;
+  --cs-text-inverse: #0a0a0b;
+
+  --cs-sev-info-fg: #6ea8fe;
+  --cs-sev-info-bg: rgba(110, 168, 254, 0.12);
+  --cs-sev-low-fg: #7cd1a6;
+  --cs-sev-low-bg: rgba(124, 209, 166, 0.12);
+  --cs-sev-medium-fg: #e7c66b;
+  --cs-sev-medium-bg: rgba(231, 198, 107, 0.12);
+  --cs-sev-high-fg: #f39560;
+  --cs-sev-high-bg: rgba(243, 149, 96, 0.12);
+  --cs-sev-critical-fg: #fd6a6a;
+  --cs-sev-critical-bg: rgba(253, 106, 106, 0.14);
+
+  --cs-ok-fg: #7cd1a6;
+  --cs-ok-bg: rgba(124, 209, 166, 0.12);
+  --cs-warn-fg: #e7c66b;
+  --cs-warn-bg: rgba(231, 198, 107, 0.12);
+  --cs-error-fg: #fd6a6a;
+  --cs-error-bg: rgba(253, 106, 106, 0.14);
+
+  --cs-accent-fg: #79e0b0;
+  --cs-accent-fg-hover: #5fcb97;
+  --cs-accent-bg: #11241c;
+  --cs-accent-ring: rgba(121, 224, 176, 0.55);
+
+  --cs-shadow-1: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  --cs-shadow-2: 0 1px 2px rgba(0, 0, 0, 0.5),
+    0 0 0 1px var(--cs-border-default);
+  --cs-shadow-3: 0 12px 32px rgba(0, 0, 0, 0.55),
+    0 0 0 1px var(--cs-border-default);
+  --cs-overlay: rgba(0, 0, 0, 0.55);
+}
+
+:root[data-theme="light"] {
+  --cs-neutral-0: #ffffff;
+  --cs-neutral-1: #f7f8f9;
+  --cs-neutral-2: #ffffff;
+  --cs-neutral-3: #f1f3f5;
+  --cs-neutral-4: #e9ecee;
+  --cs-neutral-5: #e3e6e9;
+  --cs-neutral-6: #d4d9dd;
+
+  --cs-border-subtle: rgba(0, 0, 0, 0.06);
+  --cs-border-default: rgba(0, 0, 0, 0.1);
+  --cs-border-strong: rgba(0, 0, 0, 0.16);
+  --cs-border-focus: rgba(0, 0, 0, 0.3);
+
+  --cs-text-primary: #0f1011;
+  --cs-text-secondary: #475063;
+  --cs-text-tertiary: #6b7480;
+  --cs-text-quaternary: #8b9099;
+  --cs-text-inverse: #ffffff;
+
+  --cs-sev-info-fg: #1e63b8;
+  --cs-sev-info-bg: rgba(30, 99, 184, 0.1);
+  --cs-sev-low-fg: #1e7a57;
+  --cs-sev-low-bg: rgba(30, 122, 87, 0.1);
+  --cs-sev-medium-fg: #8a6500;
+  --cs-sev-medium-bg: rgba(138, 101, 0, 0.12);
+  --cs-sev-high-fg: #bc4b14;
+  --cs-sev-high-bg: rgba(188, 75, 20, 0.1);
+  --cs-sev-critical-fg: #c02020;
+  --cs-sev-critical-bg: rgba(192, 32, 32, 0.1);
+
+  --cs-ok-fg: #1e7a57;
+  --cs-ok-bg: rgba(30, 122, 87, 0.1);
+  --cs-warn-fg: #8a6500;
+  --cs-warn-bg: rgba(138, 101, 0, 0.12);
+  --cs-error-fg: #c02020;
+  --cs-error-bg: rgba(192, 32, 32, 0.1);
+
+  --cs-accent-fg: #0e7c52;
+  --cs-accent-fg-hover: #0a6644;
+  --cs-accent-bg: #e6f7ef;
+  --cs-accent-ring: rgba(14, 124, 82, 0.45);
+
+  --cs-shadow-1: 0 1px 2px rgba(15, 16, 17, 0.04);
+  --cs-shadow-2: 0 2px 6px rgba(15, 16, 17, 0.08),
+    0 0 0 1px var(--cs-border-default);
+  --cs-shadow-3: 0 16px 40px rgba(15, 16, 17, 0.14),
+    0 0 0 1px var(--cs-border-default);
+  --cs-overlay: rgba(8, 9, 11, 0.4);
+}
+
+:root {
+  --cs-font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, sans-serif;
+  --cs-font-mono: "JetBrains Mono", "SF Mono", ui-monospace, "Fira Code", Menlo,
+    Consolas, monospace;
+
+  --cs-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --cs-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --cs-dur-1: 120ms;
+  --cs-dur-2: 180ms;
+  --cs-dur-3: 260ms;
+  --cs-dur-4: 400ms;
+
+  --cs-ring: 0 0 0 2px var(--cs-neutral-2), 0 0 0 4px var(--cs-accent-ring);
+}

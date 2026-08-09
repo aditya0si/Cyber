@@ -1,0 +1,59 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+/* Minimal globals for Phase 0; Phase 8 expands design-system primitives (docs/02 §4, §8). */
+
+:root {
+  color-scheme: dark light;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  background: var(--cs-neutral-0);
+  color: var(--cs-text-primary);
+  font-family: var(--cs-font-sans);
+  font-feature-settings: "cv11", "ss03";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--cs-ring);
+  border-radius: var(--cs-radius-md, 8px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes cs-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

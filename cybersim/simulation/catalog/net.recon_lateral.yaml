@@ -1,0 +1,30 @@
+id: net.recon_lateral
+simulator: network
+display:
+  title: "Network intrusion: recon → lateral movement"
+  blurb: "Port scan, service discovery, SSH brute force, and lateral hops toward the data warehouse."
+  category: network_intrusion
+  difficulty: intermediate
+  duration_sec: 240
+environment: net.corp
+adversary:
+  origin: { zone: internet, ip: 203.0.113.42 }
+  skill: intermediate
+  kill_chain: net_chain_recon-move
+  intent: data_exfiltration
+params_default: {}
+expected_detections:
+  - threat_class: port_scan
+    min_severity: low
+    within_sec: 60
+  - threat_class: lateral_movement
+    min_severity: high
+    within_sec: 180
+  - threat_class: data_exfiltration
+    min_severity: critical
+    within_sec: 220
+scoring:
+  speed_weight: 0.3
+  correctness_weight: 0.5
+  containment_weight: 0.2
+status: active

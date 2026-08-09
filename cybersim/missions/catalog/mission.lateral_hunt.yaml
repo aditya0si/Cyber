@@ -1,0 +1,36 @@
+id: mission.lateral_hunt
+title: "Mission: Lateral Hunt"
+subtitle: "Internal network · 4 hosts · SSH · data warehouse at risk"
+simulator: network
+scenario_id: net.recon_lateral
+duration_sec: 360
+objectives:
+  - id: spot_scan
+    title: "Spot the port scan within 60s"
+    kind: detection_within
+    params: { threat_class: port_scan, severity: low, within_sec: 60 }
+    points: 15
+  - id: spot_lateral
+    title: "Detect lateral movement"
+    kind: detection_within
+    params: { threat_class: lateral_movement, severity: high, within_sec: 240 }
+    points: 30
+  - id: block_before_exfil
+    title: "Block egress before bulk exfiltration"
+    kind: action_executed_before_event
+    params:
+      action_ids: [block_egress, isolate_host]
+      stop_event_subtype: data_exfil_indicator
+    points: 35
+  - id: contain_fast
+    title: "Contain the initial foothold host"
+    kind: action_executed_before_event
+    params:
+      action_ids: [isolate_host]
+      stop_event_subtype: net_lateral_hop
+    points: 20
+scoring:
+  max_score: 100
+sharing:
+  public_default: true
+status: active

@@ -1,0 +1,123 @@
+name: cybersim
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: cybersim
+      POSTGRES_USER: cybersim
+      POSTGRES_PASSWORD: cybersim_dev
+    ports: ["5432:5432"]
+    volumes:
+      - ./.docker-data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cybersim -d cybersim"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7.2-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["6379:6379"]
+    volumes:
+      - ./.docker-data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: cybersim
+      MINIO_ROOT_PASSWORD: cybersim_dev
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./.docker-data/minio:/data
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.api
+    image: cybersim-api:dev
+    env_file: [.env]
+    environment:
+      ENV: local
+      DATABASE_URL: postgresql+asyncpg://cybersim:cybersim_dev@postgres:5432/cybersim
+      REDIS_URL: redis://redis:6379/0
+      OBJECT_STORE_ENDPOINT: http://minio:9000
+      OBJECT_STORE_ACCESS_KEY: cybersim
+      OBJECT_STORE_SECRET_KEY: cybersim_dev
+      OBJECT_STORE_BUCKET: cybersim
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    ports: ["8000:8000"]
+    profiles: ["app"]
+
+  worker:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.worker
+    image: cybersim-worker:dev
+    env_file: [.env]
+    environment:
+      ENV: local
+      DATABASE_URL: postgresql+asyncpg://cybersim:cybersim_dev@postgres:5432/cybersim
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    profiles: ["app"]
+
+  normalizer:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.worker
+    image: cybersim-worker:dev
+    command: ["python", "-m", "cybersim.events.normalizer_tasks"]
+    env_file: [.env]
+    environment:
+      ENV: local
+      DATABASE_URL: postgresql+asyncpg://cybersim:cybersim_dev@postgres:5432/cybersim
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    profiles: ["app"]
+
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.web
+    image: cybersim-web:dev
+    env_file: [.env]
+    ports: ["3000:3000"]
+    profiles: ["app"]
+
+  # --- Optional observational profile: docker compose --profile obs up -d ---
+
+  grafana:
+    image: grafana/grafana:latest
+    ports: ["3001:3000"]
+    profiles: ["obs"]
+
+  loki:
+    image: grafana/loki:latest
+    ports: ["3100:3100"]
+    profiles: ["obs"]
+
+  tempo:
+    image: grafana/tempo:latest
+    ports: ["4318:4318"]
+    profiles: ["obs"]
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports: ["9090:9090"]
+    profiles: ["obs"]

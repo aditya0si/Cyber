@@ -1,0 +1,67 @@
+{
+  "techniques": [
+    {
+      "id": "T1110",
+      "tactic_ids": ["TA0006"],
+      "name": "Brute Force",
+      "description": "Adversaries may use brute force techniques to gain access to accounts when passwords are unknown or when password hashes are obtained.",
+      "detection": "Monitor for many failed authentication attempts across multiple accounts.",
+      "mitigation": "Enforce account lockouts, multi-factor authentication, and rate limiting.",
+      "tags": ["T1110"]
+    },
+    {
+      "id": "T1078",
+      "tactic_ids": ["TA0006", "TA0001"],
+      "name": "Valid Accounts",
+      "description": "Adversaries may obtain and abuse credentials of existing accounts as a means of gaining Initial Access, Persistence, Privilege Escalation, or Defense Evasion.",
+      "detection": "Monitor for unusual account usage, such as logins from new geographic locations.",
+      "mitigation": "Use multi-factor authentication and monitor for anomalous login behavior.",
+      "tags": ["T1078"]
+    },
+    {
+      "id": "T1190",
+      "tactic_ids": ["TA0001"],
+      "name": "Exploit Public-Facing Application",
+      "description": "Adversaries may attempt to exploit a weakness in an Internet-facing computer or program using software, data, or commands.",
+      "detection": "Monitor application logs for anomalous requests and injection patterns.",
+      "mitigation": "Apply input validation, parameterized queries, and web application firewalls.",
+      "tags": ["T1190"]
+    },
+    {
+      "id": "T1195",
+      "tactic_ids": ["TA0001"],
+      "name": "Supply Chain Compromise",
+      "description": "Adversaries may manipulate products or product delivery mechanisms prior to receipt by a final consumer.",
+      "detection": "Monitor dependency resolution and build-time behavior for unexpected changes.",
+      "mitigation": "Pin dependency versions, verify package integrity, and scan for malicious packages.",
+      "tags": ["T1195"]
+    },
+    {
+      "id": "T1046",
+      "tactic_ids": ["TA0007"],
+      "name": "Network Service Discovery",
+      "description": "Adversaries may attempt to get a listing of services running on remote hosts, including those that may be vulnerable.",
+      "detection": "Monitor for scanning activity such as connections to many ports from a single source.",
+      "mitigation": "Restrict network access and use network segmentation.",
+      "tags": ["T1046"]
+    },
+    {
+      "id": "T1041",
+      "tactic_ids": ["TA0010"],
+      "name": "Exfiltration Over C2 Channel",
+      "description": "Adversaries may steal data by exfiltrating it over an existing command and control channel.",
+      "detection": "Monitor for large data transfers or unusual query patterns returning large result sets.",
+      "mitigation": "Monitor and restrict outbound data transfers; detect unusual bulk reads.",
+      "tags": ["T1041"]
+    },
+    {
+      "id": "T1068",
+      "tactic_ids": ["TA0004"],
+      "name": "Exploitation for Privilege Escalation",
+      "description": "Adversaries may exploit software vulnerabilities to attempt to elevate privileges.",
+      "detection": "Monitor for unexpected privilege changes or use of admin-level accounts.",
+      "mitigation": "Keep systems patched; enforce least privilege.",
+      "tags": ["T1068"]
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+# Extends the upstream gitleaks defaults (v8):
+#   https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml
+# This allow-list excludes synthetic/test data that triggers false-positive
+# entropy: docs/ JSON examples and unit-test fixtures carry `correlation_key`
+# values with RFC 5737 documentation IPs (203.0.113.x etc.) which look like
+# API keys to the generic rule. Real secrets checks remain active for source
+# code, infra, and config.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "docs/ and tests/unit fixtures contain synthetic IPs / correlation keys that trigger generic-api-key entropy."
+paths = [
+  '''docs/.*''',
+  '''tests/unit/test_m1_pipeline.py''',
+  '''tests/unit/test_api.py''',
+  '''tests/unit/test_analyst_ai.py''',
+  '''tests/unit/test_graph_repo_and_normalizer.py''',
+  '''tests/sim_determinism/.*''',
+  '''tests/scenario_golden/.*''',
+]

@@ -1,0 +1,26 @@
+id: supply.malicious_package
+simulator: supply
+display:
+  title: "Supply chain: malicious transitive dependency"
+  blurb: "A malicious package installs a post-install hook that exfiltrates environment patterns."
+  category: supply_chain_compromise
+  difficulty: intermediate
+  duration_sec: 180
+environment: supply.app
+adversary:
+  origin: { zone: internet, ip: 203.0.113.42 }
+  skill: expert
+  kill_chain: supply_chain_chain
+  intent: credential_access
+params_default:
+  dependency_depth: 3
+  delay_before_activation_ms: 0
+expected_detections:
+  - threat_class: malicious_package
+    min_severity: critical
+    within_sec: 120
+scoring:
+  speed_weight: 0.3
+  correctness_weight: 0.5
+  containment_weight: 0.2
+status: active

@@ -1,0 +1,27 @@
+id: api.idor_orders
+simulator: api
+display:
+  title: "API abuse: IDOR on /api/orders/{id}"
+  blurb: "Attacker walks object IDs to enumerate and exfiltrate order data."
+  category: api_abuse
+  difficulty: intermediate
+  duration_sec: 240
+environment: api.finbank
+adversary:
+  origin: { zone: internet, ip: 203.0.113.42 }
+  skill: intermediate
+  kill_chain: api_chain_idor
+  intent: data_exfiltration
+params_default:
+  request_rate_per_sec: 2
+  id_resource_pool: 1000
+  warmup_sec: 4
+expected_detections:
+  - threat_class: idor
+    min_severity: high
+    within_sec: 120
+scoring:
+  speed_weight: 0.3
+  correctness_weight: 0.5
+  containment_weight: 0.2
+status: active

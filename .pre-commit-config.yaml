@@ -1,0 +1,57 @@
+name: CyberSim pre-commit
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+        exclude: ^infra/terraform/.*$
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=512]
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.2
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (uv venv, matches CI)
+        entry: uv run mypy
+        language: system
+        pass_filenames: false
+        args: [cybersim]
+        always_run: true
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: forbid-nondeterminism
+        name: forbid random.*/time.time()/uuid.uuid4() outside sanctioned files
+        entry: python infra/scripts/forbid_nondeterminism.py
+        language: python
+        pass_filenames: true
+        files: ^cybersim/.*\.py$
+        additional_dependencies: []
+      - id: forbid-raw-hex-in-web
+        name: forbid raw hex literals in web components (design tokens only)
+        entry: python infra/scripts/forbid_raw_hex_in_web.py
+        language: python
+        pass_filenames: true
+        files: ^apps/web/src/.*\.(t|j)sx?$
+        additional_dependencies: []

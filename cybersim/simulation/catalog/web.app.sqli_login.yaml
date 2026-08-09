@@ -1,0 +1,36 @@
+id: web.app.sqli_login
+simulator: web
+display:
+  title: "Web App: SQL injection against /api/login"
+  blurb: "Credential brute force + SQLi payload slips into a parameter; DB errors leak schema."
+  category: web_application_attack
+  difficulty: intermediate
+  duration_sec: 240
+environment: web.finbank
+adversary:
+  origin: { zone: internet, ip: 203.0.113.42 }
+  skill: intermediate
+  kill_chain: web_chain_sqli
+  intent: data_exfiltration
+params_default:
+  request_rate_per_sec: 4
+  payload_mutation_seed: 7
+  noise_ratio: 0.2
+  benign_users: ["alice", "bob", "carol"]
+  attacker_skill: intermediate
+  stealth_error_rate: 0.6
+expected_detections:
+  - threat_class: sql_injection
+    min_severity: high
+    within_sec: 60
+  - threat_class: credential_compromise
+    min_severity: high
+    within_sec: 90
+  - threat_class: data_exfiltration
+    min_severity: critical
+    within_sec: 120
+scoring:
+  speed_weight: 0.3
+  correctness_weight: 0.5
+  containment_weight: 0.2
+status: active

@@ -1,0 +1,38 @@
+id: mission.poisoned_lib
+title: "Mission: Poisoned Lib"
+subtitle: "Build pipeline · malicious transitive dependency · env secrets at risk"
+simulator: supply
+scenario_id: supply.malicious_package
+duration_sec: 300
+objectives:
+  - id: detect_package
+    title: "Detect the malicious package"
+    kind: detection_within
+    params: { threat_class: malicious_package, severity: critical, within_sec: 120 }
+    points: 35
+  - id: block_hooks
+    title: "Block lifecycle hooks before credential scan"
+    kind: action_executed_before_event
+    params:
+      action_ids: [block_post_install_hook, remove_malicious_package]
+      stop_event_subtype: env_exfil_pattern
+    points: 35
+  - id: stop_egress
+    title: "Stop the C2 egress"
+    kind: action_executed_before_event
+    params:
+      action_ids: [block_registry_source, remove_malicious_package]
+      stop_event_subtype: net_connection
+    points: 20
+  - id: rebuild_safe
+    title: "Pin dependencies for a reproducible build"
+    kind: action_executed_before_event
+    params:
+      action_ids: [pin_dependency_version, force_reproducible_build]
+      stop_event_subtype: package_lifecycle_hook_suspicious
+    points: 10
+scoring:
+  max_score: 100
+sharing:
+  public_default: true
+status: active
