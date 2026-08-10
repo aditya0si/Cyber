@@ -9,18 +9,16 @@ Rules:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import contextlib
+from typing import Any
 
 from cybersim.analyst.dto import RecommendedAction
 from cybersim.events.schema import CanonicalEvent
 from cybersim.graph.repo import GraphRepository
 from cybersim.graph.types import (
-    EdgeType,
     FootholdState,
-    GraphEdge,
     GraphNode,
     NodeKind,
-    OverlayNode,
 )
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -130,6 +128,14 @@ def _handle_login_failed(
                 attrs={"attempt_count": 1, "attack_type": "brute_force"},
             ),
         )
+        # Attacker --LAUNCHED--> Attack (anchors the attack path origin)
+        repo.add_overlay_edge(
+            sim_id,
+            kind="LAUNCHED",
+            from_id=f"attacker_{event.source_ip}",
+            to_id=attack_node_id,
+            evidence_event_id=event.event_id,
+        )
         # Event --INDICATES--> Attack
         repo.add_overlay_edge(
             sim_id,
@@ -225,10 +231,8 @@ def _handle_privilege_escalation(
     )
 
     # Mark target service as compromised if it exists
-    try:
+    with contextlib.suppress(KeyError):
         repo.update_foothold(sim_id, event.target_asset, FootholdState.COMPROMISED)
-    except KeyError:
-        pass
 
 
 def _handle_db_access(
@@ -256,15 +260,13 @@ def _handle_db_access(
     )
 
     # Mark target node at_risk
-    try:
+    with contextlib.suppress(KeyError):
         repo.update_foothold(
             sim_id,
             event.target_asset,
             FootholdState.COMPROMISED,
             flags={"status": "at_risk"},
         )
-    except KeyError:
-        pass
 
 
 def _handle_data_transfer(
@@ -273,15 +275,13 @@ def _handle_data_transfer(
     sim_id: str,
 ) -> None:
     """DATA_TRANSFER → mark target as exfiltration_suspected."""
-    try:
+    with contextlib.suppress(KeyError):
         repo.update_foothold(
             sim_id,
             event.target_asset,
             FootholdState.COMPROMISED,
             flags={"status": "exfiltration_suspected"},
         )
-    except KeyError:
-        pass
 
 
 # ── response actions (PROTOCOL-ONLY, no direct NetworkX access) ───────────────
@@ -302,8 +302,10 @@ def apply_response_actions(
             _revoke_sessions(repo, sim_id)
         elif action.action_id == "block_database":
             _block_database(repo, sim_id)
+        elif action.action_id == "rotate_credentials":
+            _rotate_credentials(repo, sim_id)
         elif action.action_id in ("block_source_ip", "rate_limit_endpoint", "quarantine_host"):
-            # Generic: mark all compromised NETWORK_ZONE or ASSET nodes contained
+            # Generic: mark all compromised NETWORK_ZONE, ASSET or USER nodes contained
             _quarantine_compromised(repo, sim_id)
 
 
@@ -345,10 +347,8 @@ def _isolate_accounts(repo: GraphRepository, sim_id: str) -> None:
 def _revoke_sessions(repo: GraphRepository, sim_id: str) -> None:
     """Remove all USES overlay edges (session revocation)."""
     for edge_rec in repo.find_overlay_edges(sim_id, kind="USES"):
-        try:
+        with contextlib.suppress(KeyError):
             repo.remove_overlay_edge(sim_id, edge_rec["key"])
-        except KeyError:
-            pass
 
 
 def _block_database(repo: GraphRepository, sim_id: str) -> None:
@@ -387,15 +387,39 @@ def _block_database(repo: GraphRepository, sim_id: str) -> None:
             )
     # Remove ACCESSED overlay edges
     for edge_rec in repo.find_overlay_edges(sim_id, kind="ACCESSED"):
-        try:
+        with contextlib.suppress(KeyError):
             repo.remove_overlay_edge(sim_id, edge_rec["key"])
-        except KeyError:
-            pass
 
 
 def _quarantine_compromised(repo: GraphRepository, sim_id: str) -> None:
-    """Generic: mark compromised NETWORK_ZONE or ASSET nodes contained."""
-    for kind in (NodeKind.NETWORK_ZONE, NodeKind.ASSET):
+    """Generic: mark compromised NETWORK_ZONE, ASSET or USER nodes contained.
+
+    Compromised USER accounts are the attacker's foothold — quarantine them
+    as *isolated* so the dashboard visibly flips the account to a contained
+    state (02 §Step 5: Isolate account → `status: isolated`).
+    """
+    for kind in (NodeKind.NETWORK_ZONE, NodeKind.ASSET, NodeKind.USER):
         for node in repo.find_nodes_by_kind(sim_id, kind):
             if node.foothold_state == FootholdState.COMPROMISED:
-                repo.update_foothold(sim_id, node.node_id, FootholdState.CONTAINED)
+                flags = {"status": "isolated"} if kind == NodeKind.USER else None
+                repo.update_foothold(
+                    sim_id, node.node_id, FootholdState.CONTAINED, flags=flags
+                )
+
+
+def _rotate_credentials(repo: GraphRepository, sim_id: str) -> None:
+    """Mark all CREDENTIAL nodes rotated (invalidated) and contained."""
+    for node in repo.find_nodes_by_kind(sim_id, NodeKind.CREDENTIAL):
+        new_attrs = dict(node.attrs)
+        new_attrs["status"] = "rotated"
+        repo.upsert_node(
+            sim_id,
+            GraphNode(
+                node_id=node.node_id,
+                kind=node.kind,
+                type=node.type,
+                label=node.label,
+                attrs=new_attrs,
+                foothold_state=FootholdState.CONTAINED,
+            ),
+        )

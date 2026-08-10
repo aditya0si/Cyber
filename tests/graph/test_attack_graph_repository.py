@@ -244,5 +244,5 @@ def test_full_scenario_produces_expected_graph_structure(repo, env, sim_id):
     assert user_node is not None
     assert user_node.foothold_state == FootholdState.COMPROMISED
     
-    attack_node = repo.get_node(sim_id, "attack_bruteforce_auth-api")
+    attack_node = repo.get_node(sim_id, "attack_bruteforce_login_ep")
     assert attack_node is not None

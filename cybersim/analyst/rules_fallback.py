@@ -57,6 +57,37 @@ _TITLE_MAP: dict[ThreatClass, str] = {
     ThreatClass.LATERAL_MOVEMENT: "Lateral movement across internal hosts",
 }
 
+# Ordered, threat-class-keyed response plans with one-line reasons (03 §Step 2:
+# "a lookup table keyed by threat category → ordered action list with reasons.
+# Small and explicit, not generated."). The demo approve endpoint executes
+# these against the graph via `apply_response_actions` (event_mutator.py).
+_RESPONSE_PLANS: dict[ThreatClass, tuple[tuple[str, str], ...]] = {
+    ThreatClass.CREDENTIAL_BRUTE_FORCE: (
+        ("isolate_account", "Isolate the targeted account — prevents further brute-force lockout escalation"),
+        ("revoke_sessions", "Revoke active sessions — closes access opened by a guessed credential"),
+        ("rotate_credentials", "Rotate credentials — invalidates leaked or guessed credentials"),
+        ("block_source_ip", "Block the attacker source IP at the edge"),
+    ),
+    ThreatClass.CREDENTIAL_COMPROMISE: (
+        ("isolate_account", "Isolate the compromised account — prevents further lateral movement"),
+        ("revoke_sessions", "Revoke active sessions — closes existing access"),
+        ("rotate_credentials", "Rotate credentials — invalidates the leaked credential"),
+        ("block_database", "Block database access from the compromised session — limits data exposure"),
+    ),
+    ThreatClass.PRIVILEGE_ESCALATION: (
+        ("isolate_account", "Isolate the account that gained elevated privileges"),
+        ("revoke_sessions", "Revoke active sessions — closes the escalated session"),
+        ("rotate_credentials", "Rotate credentials — invalidates the elevated-role credential"),
+        ("block_database", "Block database access — prevents use of the escalated role"),
+    ),
+    ThreatClass.DATA_EXFILTRATION: (
+        ("block_source_ip", "Block the exfiltrating source IP at the edge"),
+        ("block_database", "Block database access — stops further data extraction"),
+        ("isolate_account", "Isolate the account used for the query"),
+        ("revoke_sessions", "Revoke active sessions — closes the exfil channel"),
+    ),
+}
+
 
 def _default_severity_for(tc: ThreatClass) -> Severity:
     return {
@@ -317,8 +348,32 @@ def _attack_path_anchors(
     return out
 
 
-def _recommended_actions(simulator_id: str) -> list[RecommendedAction]:
-    """Surface passive recommended actions per simulator catalog."""
+def _recommended_actions(
+    simulator_id: str, threat_class: ThreatClass | None = None
+) -> list[RecommendedAction]:
+    """Ordered recommended actions with one-line reasons.
+
+    Threat-class-keyed plan table (03 §Step 2) wins when one exists — that is
+    what the human-approval gate executes. Otherwise fall back to the
+    per-simulator whitelist so every detection still offers *some* action.
+    """
+    plan = _RESPONSE_PLANS.get(threat_class) if threat_class is not None else None
+    if plan is not None:
+        # Keep only actions the simulator catalog actually allows — the
+        # validator prunes anything else (docs/11 §3.9-6), and pruning a
+        # recommendation plan to zero would be worse than the fallback.
+        allowed = set(allowed_actions(simulator_id))
+        filtered = [(a, r) for a, r in plan if a in allowed]
+        if filtered:
+            return [
+                RecommendedAction(
+                    action_id=action_id,
+                    order=order,
+                    params={},
+                    rationale=reason,
+                )
+                for order, (action_id, reason) in enumerate(filtered, start=1)
+            ]
     out: list[RecommendedAction] = []
     for order, action_id in enumerate(allowed_actions(simulator_id), start=1):
         if order > 5:
@@ -408,7 +463,7 @@ def analyze_window(
                 mitre_tactics=tactics,
                 mitre_techniques=techniques,
                 owasp_refs=owasp,
-                recommended_actions=_recommended_actions(simulator_id),
+                recommended_actions=_recommended_actions(simulator_id, threat_class),
                 source=DetectionSource.RULES,
             )
         )

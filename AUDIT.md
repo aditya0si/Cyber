@@ -1,5 +1,155 @@
 # CyberSim Graph Layer Audit — 02b Final Closure
 
+## Environment Compatibility Fix (Stage 03.5, pre-04)
+
+### Finding: `datetime.utcnow()` deprecated on Python 3.12
+
+`pyproject.toml` escalates `DeprecationWarning` from `cybersim.*` to errors
+(`filterwarnings = ["error::DeprecationWarning:cybersim.*"]`). Under Python
+3.12.13 (this machine), `datetime.datetime.utcnow()` raises a
+DeprecationWarning, turning the entire test suite red (30 failures/errors:
+simulation, analyst, graph, API tests) even though the branch was green under
+an older interpreter.
+
+| File | Line | Fix |
+|---|---|---|
+| `cybersim/simulation/scenario.py` | 35 | `utcnow().isoformat()+"Z"` → `datetime.now(datetime.UTC).isoformat().replace("+00:00","Z")` |
+| `cybersim/api/main.py` | 187 | Same pattern (synthetic containment event timestamp) |
+
+`platform/auth/repo.py`, `platform/auth/models.py`,
+`platform/simulation/store.py` already used `datetime.now(tz=UTC)` — kept
+as-is.
+
+### Result
+
+```
+222 passed, 14 skipped, 0 failed
+```
+
+---
+
+## Stage 04 — Dashboard Frontend (four-panel demo dashboard)
+
+### Backend gaps found during the frontend audit (all fixed)
+
+The existing tests were only green because they *manually* worked around
+backend gaps (several API tests re-applied events to the graph by hand,
+with comments like "For now, let's manually apply them so the test passes").
+Fixing those gaps is what makes the Stage 04 checkpoint actually work.
+
+| # | File | Change |
+|---|---|---|
+| 1 | `cybersim/graph/repo_nx.py` | `snapshot()` now includes `overlay_edges` (kind, from, to, active) so the React Flow graph can render the attack narrative (INDICATES / TARGETS / USES / ACCESSED / …) — previously only env edges were serialized |
+| 2 | `cybersim/simulation/scenario.py` | `start()` accepts an `on_event` callback invoked per emitted event; scenario now targets **real env node ids** (`login_ep`, `users_db` instead of phantom `auth-api`/`database`) and sets `raw_context.source_node_id` so the attack-path query has an origin |
+| 3 | `cybersim/api/main.py` | `/simulation/start` is now a **sync route** (threadpool → event loop stays free for concurrent polls) and applies each event to the graph as it lands via `on_event`; clears stale `last_analysis`; module-level imports cleaned per ruff |
+| 4 | `cybersim/graph/event_mutator.py` | Added `LAUNCHED` overlay edge (attacker → attack node) so paths originate at the attacker; added `rotate_credentials` handler (credential nodes → `status: rotated`, CONTAINED); `_quarantine_compromised` now covers USER nodes (sets `status: isolated`) and uses `contextlib.suppress` |
+| 5 | `cybersim/analyst/response_catalog.py` | Web catalog now also allows `isolate_account`, `revoke_sessions`, `block_database` — the containment actions the demo actually executes |
+| 6 | `cybersim/analyst/rules_fallback.py` | Response Planner is now a threat-class-keyed plan table with one-line reasons (03 §Step 2), filtered through the per-simulator catalog; empty-path fallback (`_attack_path_anchors`) kept |
+| 7 | `cybersim/graph/repo_nx.py` | `attack_paths()` now walks env **and** overlay edges (on a copy) — the attack path is a real graph query: `Attacker → Attack (brute_force) → /api/login → User Database → user_data` |
+| 8 | `tests/` | `test_full_scenario_produces_expected_graph_structure` updated for the real env id (`attack_bruteforce_login_ep`); `test_m1_pipeline` whitelist now reads `allowed_actions("web")` instead of a hardcoded copy |
+
+### Frontend (new — `apps/web`)
+
+Added `reactflow` + `dagre` dependencies. New files:
+
+```
+src/app/demo/page.tsx                    Four-panel layout + 1s polling
+src/components/demo/EventStream.tsx      Reverse-chron events, severity badge
+src/components/demo/AttackGraph.tsx      React Flow canvas (dagre LR layout)
+src/components/demo/AnalystPanel.tsx     Threat card + Explain / Response / Execute
+src/lib/demo/types.ts                    Demo API types
+src/lib/demo/api.ts                      Demo API client (no auth)
+src/lib/demo/graphLayout.ts              Snapshot → RF nodes/edges + styling
+```
+
+- Polls `GET /simulation/events` + `GET /graph` every 1s while running
+  (events/graph build live because the backend applies events as they land);
+  stops polling when idle/contained.
+- Auto-runs `POST /analyst/analyze` when the scenario completes; `Execute
+  Response` → `POST /analyst/approve-response` is the human-approval gate
+  (deliberate confirm state). Card flips to `CONTAINED`; graph shows
+  isolated/blocked state via foothold-state colors.
+- Node color = kind, border color = foothold state (`compromised` red,
+  `contained` green); animated dashed red edges = overlay attack links.
+- Route is unauthenticated (`/demo`) — the demo endpoints need no auth.
+
+### Verification
+
+```
+uv run pytest tests/           → 222 passed, 14 skipped
+pnpm typecheck / lint / build  → clean; /demo route static
+Live smoke test (uvicorn + built Next.js):
+  start → events trickle in 0.5s apart → analyze → threat card with
+  critical/data_exfiltration, 60% confidence, real attack path, 4 ordered
+  actions with reasons → approve → users_db blocked, user isolated,
+  CONTAINMENT_EXECUTED events in stream.
+```
+
+### Known follow-ups (not blocking)
+
+- `ruff check cybersim` still reports 6 pre-existing issues in
+  `events/normalizer.py` + `events/schema.py` (untouched by this stage).
+- `mypy cybersim` fails on a numpy stub vs mypy 2.3 incompatibility —
+  environment-level, pre-existing.
+
+---
+
+## Stage 05 — Integration, end-to-end run, demo script, fallback plan
+
+### Deliverables
+
+- **`RUNNING.md`** at repo root — exact run commands (backend `uv run
+  uvicorn cybersim.api.main:create_app --factory`, frontend `pnpm dev` →
+  `http://localhost:3000/demo`), the 2-minute demo narration beats, known
+  fragile points with one-line workarounds, and the demo-day fallback plan.
+- `USE_LLM=false` verified as the default: `create_app(analyst_mode="rules")`
+  and blank `OPENAI_API_KEY` in `.env.example`; the demo makes zero external
+  calls (rules path + TF-IDF RAG fallback).
+
+### Determinism run (05 Step 1 item 3) — 5 consecutive full runs via API
+
+Ran `start(delay=0) → analyze → approve-response → reset` 5× on one app:
+
+```
+run 1: baseline (6 events, 22 graph nodes)
+run 2-5: events identical=True, threat card identical=True
+         graph structure (kind/label/foothold) identical=True
+         only 6 event_<uuid> node ids vary per run (uuid4 by design)
+contained state every run: user=contained/isolated, db=contained/blocked
+```
+
+Event sequence: LOGIN_FAILED ×3 → LOGIN_SUCCESS → PRIVILEGE_ESCALATION →
+DB_ACCESS. Threat card: critical / data_exfiltration / 60% confidence, 4
+ordered actions. Matches the contract's "timing may vary slightly, content
+should not".
+
+### End-to-end checklist status
+
+- [x] Start → events appear within a couple seconds (0.8s pacing, build live)
+- [x] All 4 stages in order with escalating severities
+- [x] Graph builds in sync with events (applied per event during start)
+- [x] Threat card: severity, confidence (formula-traced), evidence, real
+      attack path, ordered actions with reasons
+- [x] Execute Response requires the click (confirm state), no auto-fire
+- [x] After execute: graph isolated/blocked, card CONTAINED, containment
+      events in stream
+- [x] No external API calls in the full run (rules mode; offline RAG)
+- [x] Full run ≈ 6s at 0.8s pacing — comfortably under 2 minutes
+- [ ] Manual browser pass + screen recording (needs a human at the machine)
+
+### Stage 06 — SKIPPED (user decision)
+
+The deck build (`06-pptx-deck-build.md`) requires the official
+`Shortlisting_PPT_Template__Round_1_.pptx` template, which is not available
+on this machine. Per the human's decision on 11 Aug 2026, Stages 05 (manual
+pass, screen recording) and 06 (deck build) are **skipped entirely**. Stage
+05 deliverables produced before that decision (`RUNNING.md`, determinism
+run) remain in the repo as-is.
+
+---
+
+## Stage 04 — Frontend Audit + Build
+
 ## Bypass Call Site Audit (Part 2, Step 1)
 
 ### Scope: all files in `cybersim/` and `tests/` outside `repo_nx.py`

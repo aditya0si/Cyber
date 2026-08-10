@@ -13,6 +13,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from cybersim.events.schema import CanonicalEvent
+from cybersim.graph.event_mutator import apply_event_to_graph
 from cybersim.infra.config import get_settings
 from cybersim.infra.errors import AppError, ErrorCode, problem_detail
 from cybersim.infra.errors.codes import error_status
@@ -94,13 +96,24 @@ def create_app(
         return {"status": "ready"}
 
     @app.post("/simulation/start")
-    async def start_demo_scenario(delay: float = 1.0) -> dict[str, str]:
-        # Reset and re-seed graph
+    def start_demo_scenario(delay: float = 0.8) -> dict[str, str]:
+        """Reset, re-seed the graph, then replay the scenario — applying each
+        event to the graph as it lands so polling clients watch it build live.
+
+        Declared as a sync route on purpose: the scenario sleeps between
+        events, and FastAPI runs sync routes in the threadpool so the event
+        loop stays free for concurrent /simulation/events + /graph polls.
+        """
         demo_repo: NetworkXGraphRepository = app.state.demo_repo
         demo_repo.drop(app.state.demo_sim_id)
         demo_repo.create(app.state.demo_sim_id, app.state.env_graph)
-        
-        app.state.demo_scenario.start(delay=delay)
+
+        app.state.last_analysis = None
+
+        def _apply(event: CanonicalEvent) -> None:
+            apply_event_to_graph(event, demo_repo, app.state.demo_sim_id)
+
+        app.state.demo_scenario.start(delay=delay, on_event=_apply)
         return {"status": "started"}
 
     @app.post("/simulation/reset")
@@ -130,8 +143,7 @@ def create_app(
     async def analyze_demo_scenario() -> dict[str, Any]:
         """Runs the event stream through the analyst and pauses before execution."""
         from cybersim.analyst.runtime import AnalystRuntime
-        from cybersim.events.schema import assemble
-        
+
         runtime: AnalystRuntime = app.state.analyst_runtime
         events_dicts = app.state.demo_scenario.get_events()
         # They are Pydantic objects from scenario.py, not dicts
@@ -165,11 +177,11 @@ def create_app(
     @app.post("/analyst/approve-response")
     async def approve_response() -> dict[str, Any]:
         """Approve and execute the containment actions."""
-        from cybersim.graph.event_mutator import apply_response_actions
-        from cybersim.events.schema import CanonicalEvent
         import datetime
         import uuid
-        
+
+        from cybersim.graph.event_mutator import apply_response_actions
+
         outcome = app.state.last_analysis
         if not outcome or not outcome.result.ok or not outcome.proposal:
             return {"status": "nothing_to_approve"}
@@ -184,7 +196,7 @@ def create_app(
             app.state.demo_scenario.events.append(
                 CanonicalEvent(
                     event_id=str(uuid.uuid4()),
-                    timestamp=datetime.datetime.utcnow().isoformat() + "Z",
+                    timestamp=datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z"),
                     event_type="CONTAINMENT_EXECUTED",
                     severity="LOW",
                     source_ip="127.0.0.1",

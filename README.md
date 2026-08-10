@@ -96,8 +96,9 @@ Do not import `NetworkXGraphRepository` in analyst code. Do not call `_require`,
 
 ## How to build further
 
-### Stage 04 — Frontend (React Flow)
-The `/graph` endpoint returns React Flow-compatible `{nodes, edges}`. Each node has `id`, `kind`, `foothold_state`, `attrs`. Build the graph canvas against this shape. The `/analyst/analyze` + `/analyst/approve-response` two-step is the human approval gate — wire a sidebar with the threat card and an Approve button that hits the second endpoint.
+### Stage 04 — Frontend (React Flow) — DONE, live at `/demo`
+The four-panel demo dashboard is implemented in `apps/web/src/app/demo/page.tsx`
+(unauthenticated route). Backend: `cd cybersim && uv run uvicorn cybersim.api.main:create_app --factory`; frontend: `cd apps/web && pnpm dev`, then open `http://localhost:3000/demo`. Click Start Simulation — events stream in, the attack graph builds live (React Flow + dagre auto-layout), the analyst card appears with evidence + a real graph-query attack path, and `Execute Response` (the human-approval gate → `POST /analyst/approve-response`) flips the graph to isolated/blocked/contained state.
 
 ### Stage 05 — LLM analyst (real mode)
 Set `OPENAI_API_KEY` in `.env`. Pass `LLMClient` and `knowledge_repo` into `AnalystRuntime(mode="ai", llm=..., knowledge_repo=...)`. The LangGraph pipeline in `cybersim/analyst/graph.py` is already wired — it just needs a live LLM.
@@ -133,11 +134,12 @@ repo.upsert_entry(KnowledgeEntry(
 - Rules-based analyst: `CredentialCompromiseScenario` triggers `credential_brute_force` / `credential_compromise` / `data_exfiltration` detections
 - RAG retrieval: TF-IDF fallback works offline; SentenceTransformer used when available
 - Human approval gate: `/analyst/analyze` → `/analyst/approve-response` two-call pattern
+- Live attack path in the threat card (graph query, not hardcoded): `Attacker → Attack (brute_force) → /api/login → User Database → user_data`
+- Full demo dashboard at `/demo`: event stream, React Flow attack graph (nodes color by kind, border by foothold state), analyst card, Execute button — all polling real backend state, zero external API calls
 - All 222 tests pass, 14 skipped (mission-mode — out of scope for Stage 1–3 demo)
 
 ## What's not done yet
 
-- Frontend (React Flow canvas)
 - LLM mode end-to-end (wiring only, not tested with live API)
 - Postgres persistence (event log, graph deltas) — currently all in-memory
 - Multi-tenancy / org isolation — EventBus routes by `org_id` parameter, not schema field; full isolation not implemented
