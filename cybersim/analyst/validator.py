@@ -210,7 +210,7 @@ def validate(
             for eid in ev_id.event_ids:
                 ev = events_by_id.get(eid)
                 if ev is not None:
-                    cited_mitre_set.update(ev.mitre_techniques)
+                    cited_mitre_set.update(ev.raw_context.get("mitre_techniques", []))
     proposed_mitre = set(proposal.mitre_techniques)
     hallucinated = proposed_mitre - cited_mitre_set
     if hallucinated:

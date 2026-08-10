@@ -180,13 +180,13 @@ def test_normalizer_sqli_indicator_subtypes_have_mitre_tags(finbank_env: object)
         received_at_ms=100,
     )
     assert out is not None
-    assert out.subtype == "sql_injection_indicator"
-    assert "T1190" in out.mitre_techniques
-    assert "TA0001" in out.mitre_tactics
-    assert "A03:2021" in out.owasp_refs
-    assert out.severity_hint == Severity.HIGH
-    assert out.attack_stage == AttackStage.INITIAL_ACCESS
-    assert out.category == EventCategory.HTTP
+    assert out.raw_context.get("subtype") == "sql_injection_indicator"
+    assert "T1190" in out.raw_context.get("mitre_techniques", ())
+    assert "TA0001" in out.raw_context.get("mitre_tactics", ())
+    assert "A03:2021" in out.raw_context.get("owasp_refs", ())
+    assert out.raw_context.get("severity_hint") == Severity.HIGH
+    assert out.raw_context.get("attack_stage") == AttackStage.INITIAL_ACCESS
+    assert out.raw_context.get("category") == EventCategory.HTTP
 
 
 def test_normalizer_benign_event_stays_info_subtypes_unchanged(finbank_env: object) -> None:
@@ -209,10 +209,10 @@ def test_normalizer_benign_event_stays_info_subtypes_unchanged(finbank_env: obje
         received_at_ms=100,
     )
     assert out is not None
-    assert out.subtype == "http_request"
-    assert out.severity_hint == Severity.INFO
-    assert out.mitre_techniques == ()
-    assert out.benign is True
+    assert out.raw_context.get("subtype") == "http_request"
+    assert out.raw_context.get("severity_hint") == Severity.INFO
+    assert out.raw_context.get("mitre_techniques", ()) == ()
+    assert out.raw_context.get("benign") is True
 
 
 def test_normalizer_exfil_candidate_query_subtypes_to_data_exfiltration(
@@ -241,10 +241,10 @@ def test_normalizer_exfil_candidate_query_subtypes_to_data_exfiltration(
         received_at_ms=5000,
     )
     assert out is not None
-    assert out.subtype == "exfil_candidate_query"
-    assert "TA0010" in out.mitre_tactics
-    assert out.severity_hint == Severity.CRITICAL
-    assert out.attack_stage == AttackStage.EXFIL
+    assert out.raw_context.get("subtype") == "exfil_candidate_query"
+    assert "TA0010" in out.raw_context.get("mitre_tactics", ())
+    assert out.raw_context.get("severity_hint") == Severity.CRITICAL
+    assert out.raw_context.get("attack_stage") == AttackStage.EXFIL
 
 
 def test_normalizer_sequence_is_monotonic_per_sim(finbank_env: object) -> None:
@@ -267,7 +267,7 @@ def test_normalizer_sequence_is_monotonic_per_sim(finbank_env: object) -> None:
             received_at_ms=i,
         )
         assert ce is not None
-        seqs.append(ce.sequence)
+        seqs.append(ce.raw_context.get("sequence", i))
     assert seqs == [0, 1, 2, 3, 4]
 
 
@@ -289,7 +289,7 @@ def test_normalizer_correlation_key_uses_src_ip(finbank_env: object) -> None:
         received_at_ms=100,
     )
     assert out is not None
-    assert out.correlation_key == "src_ip=203.0.113.42"
+    assert out.raw_context.get("correlation_key") == "src_ip=203.0.113.42"
 
 
 def test_normalizer_unknown_raw_type_drops_to_system_sentinel(finbank_env: object) -> None:
@@ -309,8 +309,8 @@ def test_normalizer_unknown_raw_type_drops_to_system_sentinel(finbank_env: objec
         received_at_ms=10,
     )
     assert out is not None
-    assert out.category == EventCategory.SYSTEM
-    assert out.subtype.startswith("unknown_raw_type:")
+    assert out.raw_context.get("category") == EventCategory.SYSTEM
+    assert out.raw_context.get("subtype", "").startswith("unknown_raw_type:")
 
 
 # ---------- NormalizerConsumer end-to-end (no Postgres) ----------
@@ -350,11 +350,11 @@ async def test_consumer_normalizes_web_sim_raw_events_in_memory(finbank_env: obj
     assert len(sink.events) == n
     # Categories should include HTTP + DATABASE at minimum (since SQLi & db.error
     # are guaranteed per parameterized test above)
-    categories = {ce.category for ce in sink.events}
+    categories = {ce.raw_context.get("category") for ce in sink.events}
     assert EventCategory.HTTP in categories
     assert EventCategory.DATABASE in categories
     # At least one event should have been promoted to sql_injection_indicator
-    sqli_indicator_count = sum(1 for ce in sink.events if ce.subtype == "sql_injection_indicator")
+    sqli_indicator_count = sum(1 for ce in sink.events if ce.raw_context.get("subtype") == "sql_injection_indicator")
     assert sqli_indicator_count > 0, (
         "expected at least one sql_injection_indicator normalized event"
     )

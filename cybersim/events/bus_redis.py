@@ -66,63 +66,32 @@ def _dict_to_raw(data: dict[str, Any]) -> RawEvent:
 def _canonical_to_dict(ev: CanonicalEvent) -> dict[str, str]:
     return {
         "event_id": ev.event_id,
-        "simulation_id": ev.simulation_id,
-        "org_id": ev.org_id,
-        "sequence": str(ev.sequence),
-        "sim_time_ms": str(ev.sim_time_ms),
-        "received_at_ms": str(ev.received_at_ms),
-        "origin": ev.origin,
-        "raw_type": ev.raw_type,
-        "category": ev.category.value,
-        "subtype": ev.subtype,
-        "severity_hint": ev.severity_hint.value,
-        "attack_stage": ev.attack_stage.value if ev.attack_stage else "",
-        "target_node_ids": json.dumps(list(ev.target_node_ids)),
-        "source_node_id": ev.source_node_id or "",
-        "via_edge_ids": json.dumps(list(ev.via_edge_ids)),
-        "mitre_tactics": json.dumps(list(ev.mitre_tactics)),
-        "mitre_techniques": json.dumps(list(ev.mitre_techniques)),
-        "owasp_refs": json.dumps(list(ev.owasp_refs)),
-        "payload": json.dumps(ev.payload, default=str),
-        "raw_ref": ev.raw_ref or "",
-        "correlation_key": ev.correlation_key or "",
-        "benign": "1" if ev.benign else "",
+        "timestamp": ev.timestamp,
+        "event_type": ev.event_type,
+        "severity": ev.severity,
+        "source_ip": ev.source_ip,
+        "target_asset": ev.target_asset,
+        "actor": ev.actor,
+        "raw_context": json.dumps(ev.raw_context, default=str),
     }
 
 
 def _dict_to_canonical(data: dict[str, Any]) -> CanonicalEvent:
-    from cybersim.events.types import AttackStage, EventCategory, Severity
-
-    payload_field = data.get("payload", "")
-    if isinstance(payload_field, str) and payload_field:
-        payload = json.loads(payload_field)
+    raw_context_field = data.get("raw_context", "{}")
+    if isinstance(raw_context_field, str) and raw_context_field:
+        raw_context = json.loads(raw_context_field)
     else:
-        payload = payload_field or {}
+        raw_context = raw_context_field or {}
 
-    attack_stage_field = data.get("attack_stage") or ""
     return CanonicalEvent(
         event_id=data["event_id"],
-        simulation_id=data["simulation_id"],
-        org_id=data["org_id"],
-        sequence=int(data["sequence"]),
-        sim_time_ms=int(data["sim_time_ms"]),
-        received_at_ms=int(data["received_at_ms"]),
-        origin=data["origin"],
-        raw_type=data["raw_type"],
-        category=EventCategory(data["category"]),
-        subtype=data["subtype"],
-        severity_hint=Severity(data["severity_hint"]),
-        attack_stage=AttackStage(attack_stage_field) if attack_stage_field else None,
-        target_node_ids=tuple(json.loads(data.get("target_node_ids", "[]"))),
-        source_node_id=data.get("source_node_id") or None,
-        via_edge_ids=tuple(json.loads(data.get("via_edge_ids", "[]"))),
-        mitre_tactics=tuple(json.loads(data.get("mitre_tactics", "[]"))),
-        mitre_techniques=tuple(json.loads(data.get("mitre_techniques", "[]"))),
-        owasp_refs=tuple(json.loads(data.get("owasp_refs", "[]"))),
-        payload=payload,
-        raw_ref=data.get("raw_ref") or None,
-        correlation_key=data.get("correlation_key") or None,
-        benign=bool(data.get("benign")),
+        timestamp=data["timestamp"],
+        event_type=data["event_type"],
+        severity=data["severity"],  # type: ignore[arg-type]
+        source_ip=data["source_ip"],
+        target_asset=data["target_asset"],
+        actor=data["actor"],
+        raw_context=raw_context,
     )
 
 
@@ -168,11 +137,11 @@ class RedisEventBus:
     async def ack_raw(self, org_id: str, sim_id: str, ref: str, group: str = "normalizer") -> None:
         await self._redis.xack(raw_stream_name(org_id, sim_id), group, ref)  # type: ignore[no-untyped-call]
 
-    async def publish_canonical(self, ev: CanonicalEvent) -> bool:
+    async def publish_canonical(self, ev: CanonicalEvent, org_id: str, sim_id: str) -> bool:
         dedup_key = f"dedup.canonical.{ev.event_id}"
         if not await self._redis.set(dedup_key, "1", ex=86400, nx=True):
             return False
-        stream = canonical_stream_name(ev.org_id, ev.simulation_id)
+        stream = canonical_stream_name(org_id, sim_id)
         await self._redis.xadd(stream, _canonical_to_dict(ev))
         return True
 

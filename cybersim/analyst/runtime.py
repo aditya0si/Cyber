@@ -14,7 +14,7 @@ from typing import Any
 from cybersim.analyst.llm.client import LLMClient
 from cybersim.analyst.validator import ValidationOutcome
 from cybersim.events.schema import CanonicalEvent
-from cybersim.graph.repo_nx import NetworkXGraphRepository
+from cybersim.graph.repo import GraphRepository
 from cybersim.graph.types import EnvironmentGraph, NodeKind
 
 
@@ -27,7 +27,7 @@ class AnalystRuntime:
                      fatal validation failure or LLM unavailability.
     """
 
-    repo: NetworkXGraphRepository
+    repo: GraphRepository
     simulator_id: str = "web"
     window_size: int = 32
     mode: str = "rules"
@@ -151,7 +151,7 @@ class AnalystRuntime:
         # Missions + the SOC feed surface the full set of chain stages.
         cited: set[str] = set()
         for ev in window:
-            cited.update(ev.mitre_techniques)
+            cited.update(ev.raw_context.get("mitre_techniques", []))
         accepted: list[ValidationOutcome] = []
         for proposal in proposals:
             outcome = validate(
@@ -210,7 +210,7 @@ class AnalystRuntime:
         # Defense in depth: re-validate at the runtime boundary (docs/11 §3.9).
         cited: set[str] = set()
         for ev in window:
-            cited.update(ev.mitre_techniques)
+            cited.update(ev.raw_context.get("mitre_techniques", []))
         return validate(
             proposal,
             allowed_action_ids=list(self.allowed_action_ids),
@@ -230,6 +230,6 @@ def _severity_rank(sev: Any) -> int:
 
 def _first_source_node(window: list[CanonicalEvent]) -> str | None:
     for ev in window:
-        if ev.source_node_id:
-            return ev.source_node_id
+        if ev.raw_context.get("source_node_id"):
+            return ev.raw_context.get("source_node_id")
     return None

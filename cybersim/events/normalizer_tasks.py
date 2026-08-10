@@ -92,16 +92,16 @@ class NormalizerConsumer:
         # Stateful foothold transition (M1 minimal semantic)
         self._maybe_update_foothold(ce, sim_id)
         self._sink.add(ce)
-        if await self._bus.publish_canonical(ce):
+        if await self._bus.publish_canonical(ce, org_id, sim_id):
             return 1
         return 0
 
     def _maybe_update_foothold(self, ce: CanonicalEvent, sim_id: str) -> None:
         """Promote foothold state based on the normalized event's severity/stage."""
-        if ce.attack_stage is None or ce.benign:
+        if ce.raw_context.get("attack_stage") is None or ce.raw_context.get("benign", False):
             return
         # Promote only the primary target (first) so test replay stays minimal.
-        for nid in ce.target_node_ids:
+        for nid in ce.raw_context.get("target_node_ids", []):
             try:
                 current = self._graph_repo.get_node(sim_id, nid)
             except KeyError:
@@ -109,7 +109,7 @@ class NormalizerConsumer:
             if current is None:
                 continue
             new_state: FootholdState | None = None
-            stage = ce.attack_stage
+            stage = ce.raw_context.get("attack_stage")
             if stage == "initial_access":
                 new_state = FootholdState.ATTEMPTED
             elif stage == "credential_access":

@@ -11,7 +11,7 @@ from cybersim.analyst.tools import AnalystTools
 from cybersim.analyst.validator import validate
 from cybersim.events.schema import CanonicalEvent
 from cybersim.graph.mitre import ThreatClass
-from cybersim.graph.repo_nx import NetworkXGraphRepository
+from cybersim.graph.repo import GraphRepository
 from cybersim.graph.types import EnvironmentGraph, NodeKind
 
 # ---------------------------------------------------------------------------
@@ -27,16 +27,17 @@ from cybersim.graph.types import EnvironmentGraph, NodeKind
 def event_ingestion(state: AnalystState) -> dict[str, Any]:
     """Assert the window is present; enrich with aggregate stats."""
     events: list[CanonicalEvent] = state.get("events", [])
-    nonbenign = [e for e in events if not e.benign]
+    nonbenign = [e for e in events if not e.raw_context.get("benign", False)]
     total = max(1, len(events))
     dominant = "info"
     for e in events:
+        sev = e.raw_context.get("severity_hint", "info")
         rank = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}.get(
-            e.severity_hint.value, 0
+            sev, 0
         )
         cur = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}.get(dominant, 0)
         if rank > cur:
-            dominant = e.severity_hint.value
+            dominant = sev
     state["window_stats"] = {
         "total_events": len(events),
         "nonbenign": len(nonbenign),
@@ -55,16 +56,16 @@ def candidate_group(state: AnalystState) -> dict[str, Any]:
     events: list[CanonicalEvent] = state.get("events", [])
     groups: dict[str, list[CanonicalEvent]] = {}
     for e in events:
-        if e.benign:
+        if e.raw_context.get("benign", False):
             continue
-        key = e.correlation_key or "<none>"
+        key = e.raw_context.get("correlation_key") or "<none>"
         groups.setdefault(key, []).append(e)
     # Candidate = the largest non-benign group with any threat-indicator subtype.
     from cybersim.analyst.rules_fallback import SUBTYPE_TO_THREATCLASS
 
     best: list[CanonicalEvent] = []
     for group in groups.values():
-        if any(e.subtype in SUBTYPE_TO_THREATCLASS for e in group) and len(group) > len(best):
+        if any(e.raw_context.get("subtype") in SUBTYPE_TO_THREATCLASS for e in group) and len(group) > len(best):
             best = group
     state["candidate"] = best
     return dict(state)
@@ -80,14 +81,14 @@ def threat_detection(state: AnalystState, *, llm: Any, tools: AnalystTools) -> d
     stats = state.get("window_stats", {})
     payloads = [
         {
-            "origin": e.origin,
-            "raw_type": e.raw_type,
-            "subtype": e.subtype,
-            "severity_hint": e.severity_hint.value,
-            "attack_stage": e.attack_stage.value if e.attack_stage else None,
-            "mitre_techniques": list(e.mitre_techniques),
-            "correlation_key": e.correlation_key,
-            "payload_summary": {k: v for k, v in e.payload.items() if k not in ("headers", "body")},
+            "origin": e.raw_context.get("origin", ""),
+            "raw_type": e.raw_context.get("raw_type", ""),
+            "subtype": e.raw_context.get("subtype", ""),
+            "severity_hint": e.raw_context.get("severity_hint", "info"),
+            "attack_stage": e.raw_context.get("attack_stage"),
+            "mitre_techniques": list(e.raw_context.get("mitre_techniques", [])),
+            "correlation_key": e.raw_context.get("correlation_key"),
+            "payload_summary": {k: v for k, v in e.raw_context.get("payload", {}).items() if k not in ("headers", "body")},
         }
         for e in events[:40]
     ]
@@ -127,7 +128,7 @@ def threat_detection(state: AnalystState, *, llm: Any, tools: AnalystTools) -> d
     # suspicious even if the LLM hedged (docs/11 §3.3 — overrule both ways).
     if not suspicious:
         for e in events:
-            if e.severity_hint.value in ("high", "critical") and not e.benign:
+            if e.raw_context.get("severity_hint", "info") in ("high", "critical") and not e.raw_context.get("benign", False):
                 suspicious = True
                 threat_class = threat_class or ThreatClass.BENIGN
                 break
@@ -147,8 +148,8 @@ def graph_retrieval(state: AnalystState, *, tools: AnalystTools) -> dict[str, An
     # path queries start where the events say the attacker is.
     src: str | None = None
     for ev in state.get("events", []):
-        if ev.source_node_id:
-            src = ev.source_node_id
+        if ev.raw_context.get("source_node_id"):
+            src = ev.raw_context.get("source_node_id")
             break
     paths = tools.get_attack_paths(node_kinds=("DATA",), hops=4, max_paths=5, src=src)
     state["graph_paths"] = paths
@@ -196,15 +197,15 @@ def evidence_analysis(
     knowledge_hits = state.get("knowledge_hits", [])
     events_out = []
     for e in events:
-        if e.benign:
+        if e.raw_context.get("benign", False):
             continue
         events_out.append(
             {
                 "event_id": e.event_id,
-                "subtype": e.subtype,
-                "severity_hint": e.severity_hint.value,
-                "correlation_key": e.correlation_key,
-                "target_node_ids": list(e.target_node_ids),
+                "subtype": e.raw_context.get("subtype", ""),
+                "severity_hint": e.raw_context.get("severity_hint", "info"),
+                "correlation_key": e.raw_context.get("correlation_key"),
+                "target_node_ids": list(e.raw_context.get("target_node_ids", [])),
             }
         )
     system = render("evidence.j2", attack_path=[], knowledge_hits=[], events=[])
@@ -215,7 +216,7 @@ def evidence_analysis(
         events=events_out,
     )
     raw = llm.complete_json(system=system, user=user, max_tokens=1024)
-    candidate_ids = [e.event_id for e in events if not e.benign]
+    candidate_ids = [e.event_id for e in events if not e.raw_context.get("benign", False)]
     evidence: list[EvidenceItem] = []
     for item in raw.get("evidence", []):
         # Normalize: strip empty ref lists, then backfill orphans with a real
@@ -300,7 +301,7 @@ def validation_gate(
     state: AnalystState,
     *,
     env: EnvironmentGraph,
-    repo: NetworkXGraphRepository,
+    repo: GraphRepository,
     events: list[CanonicalEvent],
     allowed_action_ids: list[str],
 ) -> dict[str, Any]:
@@ -334,7 +335,7 @@ def validation_gate(
 
     cited: set[str] = set()
     for e in events:
-        cited.update(e.mitre_techniques)
+        cited.update(e.raw_context.get("mitre_techniques", []))
     for hit in state.get("knowledge_hits", []):
         cited.add(hit.get("source_id", ""))
 
@@ -411,7 +412,7 @@ def _anchor_node(a: dict[str, Any]) -> Any:
 
 
 def rule_fallback(
-    state: AnalystState, *, repo: NetworkXGraphRepository, env: EnvironmentGraph
+    state: AnalystState, *, repo: GraphRepository, env: EnvironmentGraph
 ) -> dict[str, Any]:
     from cybersim.analyst.rules_fallback import analyze_window
 
@@ -431,13 +432,13 @@ def rule_fallback(
     return dict(state)
 
 
-def _repo_paths(repo: NetworkXGraphRepository, state: AnalystState) -> list[Any]:
+def _repo_paths(repo: GraphRepository, state: AnalystState) -> list[Any]:
     try:
         src = None
         events: list[CanonicalEvent] = state.get("events", [])
         for e in events:
-            if e.source_node_id:
-                src = e.source_node_id
+            if e.raw_context.get("source_node_id"):
+                src = e.raw_context.get("source_node_id")
                 break
         return repo.attack_paths(
             state["simulation_id"],

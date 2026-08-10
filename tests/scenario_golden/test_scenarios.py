@@ -115,7 +115,7 @@ async def _run_golden(scenario_id: str) -> list[str]:
         outcome = validate(
             proposal,
             allowed_action_ids=[],
-            cited_mitre_techniques=sorted({t for e in sink.events for t in e.mitre_techniques}),
+            cited_mitre_techniques=sorted({t for e in sink.events for t in e.raw_context.get("mitre_techniques", [])}),
             events_by_id={e.event_id: e for e in sink.events},
             graph_paths=paths,
         )
@@ -126,8 +126,8 @@ async def _run_golden(scenario_id: str) -> list[str]:
 
 def _first_src(events: list[Any]) -> str | None:
     for e in events:
-        if e.source_node_id:
-            return e.source_node_id
+        if e.raw_context.get("source_node_id"):
+            return e.raw_context.get("source_node_id")
     return None
 
 

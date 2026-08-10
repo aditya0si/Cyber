@@ -81,10 +81,10 @@ def _correlation_groups(
     window: list[CanonicalEvent],
 ) -> list[tuple[str | None, list[CanonicalEvent]]]:
     """Group non-benign events from the SAME correlation_key."""
-    nonbenign = [e for e in window if not e.benign]
-    sorted_ = sorted(nonbenign, key=lambda e: str(e.correlation_key or "<no-key>"))
+    nonbenign = [e for e in window if not e.raw_context.get("benign", False)]
+    sorted_ = sorted(nonbenign, key=lambda e: str(e.raw_context.get("correlation_key") or "<no-key>"))
     out: list[tuple[str | None, list[CanonicalEvent]]] = []
-    for key, group_iter in groupby(sorted_, key=lambda e: e.correlation_key):
+    for key, group_iter in groupby(sorted_, key=lambda e: e.raw_context.get("correlation_key")):
         out.append((key if key != "<no-key>" else None, list(group_iter)))
     return out
 
@@ -99,7 +99,7 @@ def _top_threat_class(group: list[CanonicalEvent]) -> ThreatClass | None:
         ThreatClass.CREDENTIAL_BRUTE_FORCE: 2,
     }
     classes = [
-        SUBTYPE_TO_THREATCLASS[e.subtype] for e in group if e.subtype in SUBTYPE_TO_THREATCLASS
+        SUBTYPE_TO_THREATCLASS[e.raw_context.get("subtype")] for e in group if e.raw_context.get("subtype") in SUBTYPE_TO_THREATCLASS
     ]
     if not classes:
         return None
@@ -116,7 +116,7 @@ def _all_threat_classes(group: list[CanonicalEvent]) -> list[ThreatClass]:
     seen: set[ThreatClass] = set()
     out: list[ThreatClass] = []
     for e in group:
-        tc = SUBTYPE_TO_THREATCLASS.get(e.subtype)
+        tc = SUBTYPE_TO_THREATCLASS.get(e.raw_context.get("subtype", ""))
         if tc is not None and tc not in seen:
             seen.add(tc)
             out.append(tc)
@@ -130,11 +130,11 @@ def _build_evidence(threat_class: ThreatClass, group: list[CanonicalEvent]) -> l
     rule, docs/11 §3.9-2). Relevant evidence categories per Fallal docs/11
     §3.5: event_burst, behavioral_signature, credential_state, graph_traversal.
     """
-    by_subtype = {e.subtype: e for e in group if e.subtype in SUBTYPE_TO_THREATCLASS}
+    by_subtype = {e.raw_context.get("subtype"): e for e in group if e.raw_context.get("subtype") in SUBTYPE_TO_THREATCLASS}
     items: list[EvidenceItem] = []
 
     # Evidence 1: event burst (auth.attempt count or burst count)
-    auth_attempts = [e for e in group if e.raw_type == "auth.attempt"]
+    auth_attempts = [e for e in group if e.raw_context.get("raw_type") == "auth.attempt"]
     if auth_attempts:
         first_ids = tuple(e.event_id for e in auth_attempts[:5])
         items.append(
@@ -154,22 +154,22 @@ def _build_evidence(threat_class: ThreatClass, group: list[CanonicalEvent]) -> l
                 kind=EvidenceKind.BEHAVIORAL_SIGNATURE,
                 weight=0.92,
                 event_ids=(http_sqli.event_id,),
-                summary=f"http.request {http_sqli.payload.get('path')!r} carried SQL metacharacters",
+                summary=f"http.request {http_sqli.raw_context.get('payload', {}).get('path')!r} carried SQL metacharacters",
             )
         )
     # Evidence N: privileged credential state — auth.success with new_geo or admin scope
     auth_success = None
     for e in group:
-        if e.raw_type == "auth.success" and e.subtype == "auth_success_after_burst":
+        if e.raw_context.get("raw_type") == "auth.success" and e.raw_context.get("subtype") == "auth_success_after_burst":
             auth_success = e
             break
     if auth_success is None:
         for e in group:
-            if e.raw_type == "auth.success":
+            if e.raw_context.get("raw_type") == "auth.success":
                 auth_success = e
                 break
     if auth_success:
-        account = str(auth_success.payload.get("account_id", ""))
+        account = str(auth_success.raw_context.get("payload", {}).get("account_id", ""))
         scope = "admin" if "admin" in account else "user"
         items.append(
             EvidenceItem(
@@ -177,12 +177,12 @@ def _build_evidence(threat_class: ThreatClass, group: list[CanonicalEvent]) -> l
                 kind=EvidenceKind.CREDENTIAL_STATE,
                 weight=0.9,
                 event_ids=(auth_success.event_id,),
-                summary=f"login from {auth_success.payload.get('new_geo')!r} as {auth_success.payload.get('account_id')!r} (scope={scope})",
+                summary=f"login from {auth_success.raw_context.get('payload', {}).get('new_geo')!r} as {auth_success.raw_context.get('payload', {}).get('account_id')!r} (scope={scope})",
             )
         )
     # Evidence N+1: exfil-candidate db.query
     exfil = next(
-        (e for e in group if e.raw_type == "db.query" and e.subtype == "exfil_candidate_query"),
+        (e for e in group if e.raw_context.get("raw_type") == "db.query" and e.raw_context.get("subtype") == "exfil_candidate_query"),
         None,
     )
     if exfil:
@@ -192,7 +192,7 @@ def _build_evidence(threat_class: ThreatClass, group: list[CanonicalEvent]) -> l
                 kind=EvidenceKind.BEHAVIORAL_SIGNATURE,
                 weight=0.93,
                 event_ids=(exfil.event_id,),
-                summary=f"db.query rows={exfil.payload.get('rows_returned')} parameterized={exfil.payload.get('parameterized')}",
+                summary=f"db.query rows={exfil.raw_context.get('payload', {}).get('rows_returned')} parameterized={exfil.raw_context.get('payload', {}).get('parameterized')}",
             )
         )
 
@@ -250,7 +250,7 @@ def _build_evidence(threat_class: ThreatClass, group: list[CanonicalEvent]) -> l
     }
     seen_labels: set[str] = {i.label for i in items}
     for ev in group:
-        spec = _INDICATOR_EVIDENCE.get(ev.subtype)
+        spec = _INDICATOR_EVIDENCE.get(ev.raw_context.get("subtype", ""))
         if spec is None or spec[0] in seen_labels:
             continue
         items.append(
@@ -265,7 +265,7 @@ def _build_evidence(threat_class: ThreatClass, group: list[CanonicalEvent]) -> l
         seen_labels.add(spec[0])
 
     # Bonus: graph traversal evidence (path to user_data)
-    nids = tuple(group[0].target_node_ids) if group else ()
+    nids = tuple(group[0].raw_context.get("target_node_ids", [])) if group else ()
     if nids:
         items.append(
             EvidenceItem(
@@ -376,7 +376,7 @@ def analyze_window(
         if len(evidence) < 2:
             continue  # validator would abort; out-of-window case
 
-        src_node_id = group[0].source_node_id if group else None
+        src_node_id = group[0].raw_context.get("source_node_id") if group else None
         attack_path = _attack_path_anchors(env, graph_paths, src_node_id)
 
         tactics, techniques, owasp = _mitre_for(threat_class)
@@ -384,7 +384,7 @@ def analyze_window(
 
         rationale_lines = [
             f"Heuristic detection (AI tier degraded). ThreatClass={threat_class.value}.",
-            f"Correlated {len(group)} event(s) across correlation_key={group[0].correlation_key!r}.",
+            f"Correlated {len(group)} event(s) across correlation_key={group[0].raw_context.get('correlation_key')!r}.",
             f"Evidence: {', '.join(e.label for e in evidence)}.",
             f"Severity floor: {base_severity.value} (graph-distance clamp applies).",
         ]
