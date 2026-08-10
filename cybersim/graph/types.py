@@ -19,6 +19,11 @@ class NodeKind(StrEnum):
     DATA = "DATA"
     NETWORK_ZONE = "NETWORK_ZONE"
     EDGE_DEVICE = "EDGE_DEVICE"
+    # Overlay-layer attack-narrative node types (added per 02b §Part 1).
+    USER = "USER"
+    ATTACK = "ATTACK"
+    EVENT = "EVENT"
+    VULNERABILITY = "VULNERABILITY"
 
 
 class AssetType(StrEnum):

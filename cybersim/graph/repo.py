@@ -80,6 +80,21 @@ class GraphRepository(Protocol):
     def graph_view(self, simulation_id: str) -> EnvironmentGraph: ...
     def snapshot(self, simulation_id: str, at_seq: int) -> bytes: ...
     def delta(self, simulation_id: str, from_seq: int, to_seq: int) -> dict[str, Any]: ...
+    def find_nodes_by_kind(
+        self,
+        simulation_id: str,
+        kind: NodeKind,
+    ) -> list[GraphNode]: ...
+    def find_overlay_edges(
+        self,
+        simulation_id: str,
+        kind: str | None = None,
+    ) -> list[dict[str, Any]]: ...
+    def remove_overlay_edge(
+        self,
+        simulation_id: str,
+        edge_key: str,
+    ) -> None: ...
 
 
 __all__ = ["GraphRepository"]

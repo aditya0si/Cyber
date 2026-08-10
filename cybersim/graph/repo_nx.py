@@ -359,6 +359,58 @@ class NetworkXGraphRepository:
             "full_snapshot": json.loads(snap),
         }
 
+    def find_nodes_by_kind(
+        self,
+        simulation_id: str,
+        kind: NodeKind,
+    ) -> list[GraphNode]:
+        """Return all env nodes with the given NodeKind."""
+        sg = self._require(simulation_id)
+        out: list[GraphNode] = []
+        with sg.lock:
+            for nid, d in sg.env.nodes(data=True):
+                if d.get("kind") == kind:
+                    out.append(
+                        GraphNode(
+                            node_id=nid,
+                            kind=d["kind"],
+                            type=d.get("type"),
+                            label=d.get("label", nid),
+                            attrs=dict(d.get("attrs", {})),
+                            foothold_state=d.get("foothold_state", FootholdState.CLEAN),
+                        )
+                    )
+        return out
+
+    def find_overlay_edges(
+        self,
+        simulation_id: str,
+        kind: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return overlay edges, optionally filtered by kind label."""
+        sg = self._require(simulation_id)
+        out: list[dict[str, Any]] = []
+        with sg.lock:
+            for u, v, k, d in sg.overlay.edges(keys=True, data=True):
+                if kind is None or d.get("kind") == kind:
+                    out.append({"from": u, "to": v, "key": k, "kind": d.get("kind"), "data": d})
+        return out
+
+    def remove_overlay_edge(
+        self,
+        simulation_id: str,
+        edge_key: str,
+    ) -> None:
+        """Remove a single overlay edge by its key."""
+        sg = self._require(simulation_id)
+        with sg.lock:
+            for u, v, k in list(sg.overlay.edges(keys=True)):
+                if k == edge_key:
+                    sg.overlay.remove_edge(u, v, key=k)
+                    sg.seq += 1
+                    return
+            raise KeyError(f"no overlay edge with key={edge_key!r}")
+
     # ---- internals --------------------------------------------------------
     def _require(self, simulation_id: str) -> _SimGraph:
         sg = self._cache.get(simulation_id)
