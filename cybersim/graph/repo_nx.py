@@ -281,15 +281,23 @@ class NetworkXGraphRepository:
                     return []
             else:
                 srcs = [src]
+            # Walk graph = env edges + narrative overlay edges (INDICATES,
+            # TARGETS, RESULTED_IN, USES, ACCESSED, …) so attack-path queries
+            # can follow the attack narrative anchored on real env nodes
+            # (02 §Step 6 — "Attack Path: Auth API → Account → Admin → Database").
+            walk = sg.env.copy()
+            for u, v, _k, d in sg.overlay.edges(keys=True, data=True):
+                if u in walk and v in walk and not walk.has_edge(u, v):
+                    walk.add_edge(u, v, kind=d.get("kind"), _overlay=True)
             paths: list[AttackPath] = []
             for s in srcs:
-                if s not in sg.env:
+                if s not in walk:
                     continue
                 for target in targets:
                     if target == s:
                         continue
                     try:
-                        gen = nx.all_simple_paths(sg.env, s, target, cutoff=hops)
+                        gen = nx.all_simple_paths(walk, s, target, cutoff=hops)
                     except (nx.NetworkXNoPath, nx.NodeNotFound):
                         continue
                     for path_nodes in islice(gen, max_paths):
@@ -297,14 +305,14 @@ class NetworkXGraphRepository:
                         transitions: list[EdgeTransition] = []
                         for u, v in pairwise(path_nodes):
                             # take first matching edge (any type)
-                            for _uu, _vv, _k, d in sg.env.edges(u, keys=True, data=True):
+                            for _uu, _vv, _k, d in walk.edges(u, keys=True, data=True):
                                 if _vv == v and d.get("active", True):
                                     transitions.append(
                                         EdgeTransition(
                                             edge_id=_k,
                                             from_node=u,
                                             to_node=v,
-                                            type=d["type"],
+                                            type=d.get("type", d.get("kind")),
                                             attrs=dict(d.get("attrs", {})),
                                         )
                                     )
@@ -347,6 +355,16 @@ class NetworkXGraphRepository:
                     }
                     for nid, d in sg.overlay.nodes(data=True)
                 ],
+                "overlay_edges": [
+                    {
+                        "id": k,
+                        "from": u,
+                        "to": v,
+                        "kind": d.get("kind"),
+                        "active": d.get("active", True),
+                    }
+                    for u, v, k, d in sg.overlay.edges(keys=True, data=True)
+                ],
             }
         return json.dumps(payload).encode("utf-8")
 
@@ -358,6 +376,58 @@ class NetworkXGraphRepository:
             "to_seq": to_seq,
             "full_snapshot": json.loads(snap),
         }
+
+    def find_nodes_by_kind(
+        self,
+        simulation_id: str,
+        kind: NodeKind,
+    ) -> list[GraphNode]:
+        """Return all env nodes with the given NodeKind."""
+        sg = self._require(simulation_id)
+        out: list[GraphNode] = []
+        with sg.lock:
+            for nid, d in sg.env.nodes(data=True):
+                if d.get("kind") == kind:
+                    out.append(
+                        GraphNode(
+                            node_id=nid,
+                            kind=d["kind"],
+                            type=d.get("type"),
+                            label=d.get("label", nid),
+                            attrs=dict(d.get("attrs", {})),
+                            foothold_state=d.get("foothold_state", FootholdState.CLEAN),
+                        )
+                    )
+        return out
+
+    def find_overlay_edges(
+        self,
+        simulation_id: str,
+        kind: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return overlay edges, optionally filtered by kind label."""
+        sg = self._require(simulation_id)
+        out: list[dict[str, Any]] = []
+        with sg.lock:
+            for u, v, k, d in sg.overlay.edges(keys=True, data=True):
+                if kind is None or d.get("kind") == kind:
+                    out.append({"from": u, "to": v, "key": k, "kind": d.get("kind"), "data": d})
+        return out
+
+    def remove_overlay_edge(
+        self,
+        simulation_id: str,
+        edge_key: str,
+    ) -> None:
+        """Remove a single overlay edge by its key."""
+        sg = self._require(simulation_id)
+        with sg.lock:
+            for u, v, k in list(sg.overlay.edges(keys=True)):
+                if k == edge_key:
+                    sg.overlay.remove_edge(u, v, key=k)
+                    sg.seq += 1
+                    return
+            raise KeyError(f"no overlay edge with key={edge_key!r}")
 
     # ---- internals --------------------------------------------------------
     def _require(self, simulation_id: str) -> _SimGraph:

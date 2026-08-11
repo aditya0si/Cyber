@@ -1,0 +1,322 @@
+EEEEEE                                                                   [100%]
+==================================== ERRORS ====================================
+___________________ ERROR at setup of test_start_returns_200 ___________________
+
+    @pytest.fixture
+    def client():
+>       app = create_app()
+              ^^^^^^^^^^^^
+
+tests/api/test_simulation_endpoints.py:8: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+cybersim/api/main.py:70: in create_app
+    _register_routers(app)
+cybersim/api/main.py:178: in _register_routers
+    from cybersim.api.routers import (
+cybersim/api/routers/missions.py:11: in <module>
+    from cybersim.api.routers.simulations import _run_simulation, start_simulation
+cybersim/api/routers/simulations.py:11: in <module>
+    from cybersim.events.normalizer_tasks import NormalizedSink, NormalizerConsumer
+cybersim/events/normalizer_tasks.py:18: in <module>
+    from cybersim.events.normalizer import Normalizer
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    """Normalizer — raw → canonical event transformation (docs/07 §2).
+    
+    The Normalizer is the SOLE legitimate producer of `CanonicalEvent`s. It:
+      1. dedups by `raw.id` (idempotent re-delivery),
+      2. assigns a strictly-increasing per-sim `sequence`,
+      3. dispatches `(origin, raw_type)` → (category, subtype) via `mapping.py`,
+      4. runs lightweight "indicator detectors" that *upgrade* the subtype when
+         a payload matches a known attack signature (e.g., SQLi tautology in
+         http.request body → subtype=`sql_injection_indicator`),
+      5. derives MITRE/OWASP tags from the upgraded threat_class,
+      6. attaches severity_hint per docs/07 §2.2 rubric,
+      7. resolves graph node linkage from raw.node_ref + payload.common keys,
+      8. computes a correlation_key (src_ip / cred_id / token_id / package).
+    
+    The persistence + Redis consumer wiring live in `normalizer_tasks.py` (so
+    unit tests of the transform never touch a real bus or DB).
+    """
+    
+    from __future__ import annotations
+    
+    import re
+    from collections.abc import Iterator
+    from dataclasses import dataclass, field
+    from typing import Any
+    
+    from cybersim.events.mapping import normalize_lookup
+>   from cybersim.events.schema import CanonicalEvent, assemble
+E   ImportError: cannot import name 'assemble' from 'cybersim.events.schema' (/home/advait/dev/Cyber/cybersim/events/schema.py)
+
+cybersim/events/normalizer.py:27: ImportError
+_______________ ERROR at setup of test_events_empty_before_start _______________
+
+    @pytest.fixture
+    def client():
+>       app = create_app()
+              ^^^^^^^^^^^^
+
+tests/api/test_simulation_endpoints.py:8: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+cybersim/api/main.py:70: in create_app
+    _register_routers(app)
+cybersim/api/main.py:178: in _register_routers
+    from cybersim.api.routers import (
+cybersim/api/routers/missions.py:11: in <module>
+    from cybersim.api.routers.simulations import _run_simulation, start_simulation
+cybersim/api/routers/simulations.py:11: in <module>
+    from cybersim.events.normalizer_tasks import NormalizedSink, NormalizerConsumer
+cybersim/events/normalizer_tasks.py:18: in <module>
+    from cybersim.events.normalizer import Normalizer
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    """Normalizer — raw → canonical event transformation (docs/07 §2).
+    
+    The Normalizer is the SOLE legitimate producer of `CanonicalEvent`s. It:
+      1. dedups by `raw.id` (idempotent re-delivery),
+      2. assigns a strictly-increasing per-sim `sequence`,
+      3. dispatches `(origin, raw_type)` → (category, subtype) via `mapping.py`,
+      4. runs lightweight "indicator detectors" that *upgrade* the subtype when
+         a payload matches a known attack signature (e.g., SQLi tautology in
+         http.request body → subtype=`sql_injection_indicator`),
+      5. derives MITRE/OWASP tags from the upgraded threat_class,
+      6. attaches severity_hint per docs/07 §2.2 rubric,
+      7. resolves graph node linkage from raw.node_ref + payload.common keys,
+      8. computes a correlation_key (src_ip / cred_id / token_id / package).
+    
+    The persistence + Redis consumer wiring live in `normalizer_tasks.py` (so
+    unit tests of the transform never touch a real bus or DB).
+    """
+    
+    from __future__ import annotations
+    
+    import re
+    from collections.abc import Iterator
+    from dataclasses import dataclass, field
+    from typing import Any
+    
+    from cybersim.events.mapping import normalize_lookup
+>   from cybersim.events.schema import CanonicalEvent, assemble
+E   ImportError: cannot import name 'assemble' from 'cybersim.events.schema' (/home/advait/dev/Cyber/cybersim/events/schema.py)
+
+cybersim/events/normalizer.py:27: ImportError
+_____________ ERROR at setup of test_events_populated_after_start ______________
+
+    @pytest.fixture
+    def client():
+>       app = create_app()
+              ^^^^^^^^^^^^
+
+tests/api/test_simulation_endpoints.py:8: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+cybersim/api/main.py:70: in create_app
+    _register_routers(app)
+cybersim/api/main.py:178: in _register_routers
+    from cybersim.api.routers import (
+cybersim/api/routers/missions.py:11: in <module>
+    from cybersim.api.routers.simulations import _run_simulation, start_simulation
+cybersim/api/routers/simulations.py:11: in <module>
+    from cybersim.events.normalizer_tasks import NormalizedSink, NormalizerConsumer
+cybersim/events/normalizer_tasks.py:18: in <module>
+    from cybersim.events.normalizer import Normalizer
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    """Normalizer — raw → canonical event transformation (docs/07 §2).
+    
+    The Normalizer is the SOLE legitimate producer of `CanonicalEvent`s. It:
+      1. dedups by `raw.id` (idempotent re-delivery),
+      2. assigns a strictly-increasing per-sim `sequence`,
+      3. dispatches `(origin, raw_type)` → (category, subtype) via `mapping.py`,
+      4. runs lightweight "indicator detectors" that *upgrade* the subtype when
+         a payload matches a known attack signature (e.g., SQLi tautology in
+         http.request body → subtype=`sql_injection_indicator`),
+      5. derives MITRE/OWASP tags from the upgraded threat_class,
+      6. attaches severity_hint per docs/07 §2.2 rubric,
+      7. resolves graph node linkage from raw.node_ref + payload.common keys,
+      8. computes a correlation_key (src_ip / cred_id / token_id / package).
+    
+    The persistence + Redis consumer wiring live in `normalizer_tasks.py` (so
+    unit tests of the transform never touch a real bus or DB).
+    """
+    
+    from __future__ import annotations
+    
+    import re
+    from collections.abc import Iterator
+    from dataclasses import dataclass, field
+    from typing import Any
+    
+    from cybersim.events.mapping import normalize_lookup
+>   from cybersim.events.schema import CanonicalEvent, assemble
+E   ImportError: cannot import name 'assemble' from 'cybersim.events.schema' (/home/advait/dev/Cyber/cybersim/events/schema.py)
+
+cybersim/events/normalizer.py:27: ImportError
+______________ ERROR at setup of test_reset_then_restart_is_clean ______________
+
+    @pytest.fixture
+    def client():
+>       app = create_app()
+              ^^^^^^^^^^^^
+
+tests/api/test_simulation_endpoints.py:8: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+cybersim/api/main.py:70: in create_app
+    _register_routers(app)
+cybersim/api/main.py:178: in _register_routers
+    from cybersim.api.routers import (
+cybersim/api/routers/missions.py:11: in <module>
+    from cybersim.api.routers.simulations import _run_simulation, start_simulation
+cybersim/api/routers/simulations.py:11: in <module>
+    from cybersim.events.normalizer_tasks import NormalizedSink, NormalizerConsumer
+cybersim/events/normalizer_tasks.py:18: in <module>
+    from cybersim.events.normalizer import Normalizer
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    """Normalizer — raw → canonical event transformation (docs/07 §2).
+    
+    The Normalizer is the SOLE legitimate producer of `CanonicalEvent`s. It:
+      1. dedups by `raw.id` (idempotent re-delivery),
+      2. assigns a strictly-increasing per-sim `sequence`,
+      3. dispatches `(origin, raw_type)` → (category, subtype) via `mapping.py`,
+      4. runs lightweight "indicator detectors" that *upgrade* the subtype when
+         a payload matches a known attack signature (e.g., SQLi tautology in
+         http.request body → subtype=`sql_injection_indicator`),
+      5. derives MITRE/OWASP tags from the upgraded threat_class,
+      6. attaches severity_hint per docs/07 §2.2 rubric,
+      7. resolves graph node linkage from raw.node_ref + payload.common keys,
+      8. computes a correlation_key (src_ip / cred_id / token_id / package).
+    
+    The persistence + Redis consumer wiring live in `normalizer_tasks.py` (so
+    unit tests of the transform never touch a real bus or DB).
+    """
+    
+    from __future__ import annotations
+    
+    import re
+    from collections.abc import Iterator
+    from dataclasses import dataclass, field
+    from typing import Any
+    
+    from cybersim.events.mapping import normalize_lookup
+>   from cybersim.events.schema import CanonicalEvent, assemble
+E   ImportError: cannot import name 'assemble' from 'cybersim.events.schema' (/home/advait/dev/Cyber/cybersim/events/schema.py)
+
+cybersim/events/normalizer.py:27: ImportError
+_____ ERROR at setup of test_events_are_json_serializable_and_schema_valid _____
+
+    @pytest.fixture
+    def client():
+>       app = create_app()
+              ^^^^^^^^^^^^
+
+tests/api/test_simulation_endpoints.py:8: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+cybersim/api/main.py:70: in create_app
+    _register_routers(app)
+cybersim/api/main.py:178: in _register_routers
+    from cybersim.api.routers import (
+cybersim/api/routers/missions.py:11: in <module>
+    from cybersim.api.routers.simulations import _run_simulation, start_simulation
+cybersim/api/routers/simulations.py:11: in <module>
+    from cybersim.events.normalizer_tasks import NormalizedSink, NormalizerConsumer
+cybersim/events/normalizer_tasks.py:18: in <module>
+    from cybersim.events.normalizer import Normalizer
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    """Normalizer — raw → canonical event transformation (docs/07 §2).
+    
+    The Normalizer is the SOLE legitimate producer of `CanonicalEvent`s. It:
+      1. dedups by `raw.id` (idempotent re-delivery),
+      2. assigns a strictly-increasing per-sim `sequence`,
+      3. dispatches `(origin, raw_type)` → (category, subtype) via `mapping.py`,
+      4. runs lightweight "indicator detectors" that *upgrade* the subtype when
+         a payload matches a known attack signature (e.g., SQLi tautology in
+         http.request body → subtype=`sql_injection_indicator`),
+      5. derives MITRE/OWASP tags from the upgraded threat_class,
+      6. attaches severity_hint per docs/07 §2.2 rubric,
+      7. resolves graph node linkage from raw.node_ref + payload.common keys,
+      8. computes a correlation_key (src_ip / cred_id / token_id / package).
+    
+    The persistence + Redis consumer wiring live in `normalizer_tasks.py` (so
+    unit tests of the transform never touch a real bus or DB).
+    """
+    
+    from __future__ import annotations
+    
+    import re
+    from collections.abc import Iterator
+    from dataclasses import dataclass, field
+    from typing import Any
+    
+    from cybersim.events.mapping import normalize_lookup
+>   from cybersim.events.schema import CanonicalEvent, assemble
+E   ImportError: cannot import name 'assemble' from 'cybersim.events.schema' (/home/advait/dev/Cyber/cybersim/events/schema.py)
+
+cybersim/events/normalizer.py:27: ImportError
+______________ ERROR at setup of test_double_start_without_reset _______________
+
+    @pytest.fixture
+    def client():
+>       app = create_app()
+              ^^^^^^^^^^^^
+
+tests/api/test_simulation_endpoints.py:8: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+cybersim/api/main.py:70: in create_app
+    _register_routers(app)
+cybersim/api/main.py:178: in _register_routers
+    from cybersim.api.routers import (
+cybersim/api/routers/missions.py:11: in <module>
+    from cybersim.api.routers.simulations import _run_simulation, start_simulation
+cybersim/api/routers/simulations.py:11: in <module>
+    from cybersim.events.normalizer_tasks import NormalizedSink, NormalizerConsumer
+cybersim/events/normalizer_tasks.py:18: in <module>
+    from cybersim.events.normalizer import Normalizer
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    """Normalizer — raw → canonical event transformation (docs/07 §2).
+    
+    The Normalizer is the SOLE legitimate producer of `CanonicalEvent`s. It:
+      1. dedups by `raw.id` (idempotent re-delivery),
+      2. assigns a strictly-increasing per-sim `sequence`,
+      3. dispatches `(origin, raw_type)` → (category, subtype) via `mapping.py`,
+      4. runs lightweight "indicator detectors" that *upgrade* the subtype when
+         a payload matches a known attack signature (e.g., SQLi tautology in
+         http.request body → subtype=`sql_injection_indicator`),
+      5. derives MITRE/OWASP tags from the upgraded threat_class,
+      6. attaches severity_hint per docs/07 §2.2 rubric,
+      7. resolves graph node linkage from raw.node_ref + payload.common keys,
+      8. computes a correlation_key (src_ip / cred_id / token_id / package).
+    
+    The persistence + Redis consumer wiring live in `normalizer_tasks.py` (so
+    unit tests of the transform never touch a real bus or DB).
+    """
+    
+    from __future__ import annotations
+    
+    import re
+    from collections.abc import Iterator
+    from dataclasses import dataclass, field
+    from typing import Any
+    
+    from cybersim.events.mapping import normalize_lookup
+>   from cybersim.events.schema import CanonicalEvent, assemble
+E   ImportError: cannot import name 'assemble' from 'cybersim.events.schema' (/home/advait/dev/Cyber/cybersim/events/schema.py)
+
+cybersim/events/normalizer.py:27: ImportError
+=============================== warnings summary ===============================
+.venv/lib/python3.11/site-packages/fastapi/testclient.py:1
+  /home/advait/dev/Cyber/.venv/lib/python3.11/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+ERROR tests/api/test_simulation_endpoints.py::test_start_returns_200 - Import...
+ERROR tests/api/test_simulation_endpoints.py::test_events_empty_before_start
+ERROR tests/api/test_simulation_endpoints.py::test_events_populated_after_start
+ERROR tests/api/test_simulation_endpoints.py::test_reset_then_restart_is_clean
+ERROR tests/api/test_simulation_endpoints.py::test_events_are_json_serializable_and_schema_valid
+ERROR tests/api/test_simulation_endpoints.py::test_double_start_without_reset
+1 warning, 6 errors in 1.52s

@@ -38,6 +38,8 @@ dependencies = [
   "opentelemetry-instrumentation-redis>=0.46",
   "opentelemetry-instrumentation-httpx>=0.46",
   "opentelemetry-instrumentation-celery>=0.46",
+  "sentence-transformers>=5.7.0",
+  "scikit-learn>=1.9.0",
 ]
 
 [dependency-groups]

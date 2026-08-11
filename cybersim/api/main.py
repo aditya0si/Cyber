@@ -13,6 +13,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from cybersim.events.schema import CanonicalEvent
+from cybersim.graph.event_mutator import apply_event_to_graph
 from cybersim.infra.config import get_settings
 from cybersim.infra.errors import AppError, ErrorCode, problem_detail
 from cybersim.infra.errors.codes import error_status
@@ -22,6 +24,7 @@ from cybersim.platform.auth.repo import AuthRepository, InMemoryAuthRepository
 from cybersim.platform.simulation.store import SimulationStore
 from cybersim.realtime.hub import RealtimeHub
 from cybersim.realtime.ticket import TicketStore
+from cybersim.simulation.scenario import CredentialCompromiseScenario
 
 _VALIDATION_TITLE = "Invalid request payload"
 
@@ -53,6 +56,23 @@ def create_app(
     app.state.tickets = tickets or TicketStore()
     app.state.analyst_mode = analyst_mode
     app.state.ws_enabled = ws_enabled
+    app.state.demo_scenario = CredentialCompromiseScenario()
+
+    # Checkpoint A: Demo graph singleton
+    from cybersim.graph.repo_nx import NetworkXGraphRepository
+    from cybersim.simulation.web.simulator import build_environment_graph
+    
+    DEMO_SIM_ID = "demo"
+    demo_repo = NetworkXGraphRepository()
+    env = build_environment_graph("web.app.sqli_login")
+    demo_repo.create(DEMO_SIM_ID, env)
+    app.state.demo_repo = demo_repo
+    app.state.demo_sim_id = DEMO_SIM_ID
+    app.state.env_graph = env
+
+    from cybersim.analyst.runtime import AnalystRuntime
+    app.state.analyst_runtime = AnalystRuntime(repo=demo_repo, simulator_id="web", mode="rules")
+    app.state.last_analysis = None
 
     app.add_middleware(IdempotencyMiddleware)
     app.add_middleware(RateLimitMiddleware)
@@ -74,6 +94,127 @@ def create_app(
     @app.get("/readyz")
     async def readyz() -> dict[str, str]:
         return {"status": "ready"}
+
+    @app.post("/simulation/start")
+    def start_demo_scenario(delay: float = 0.8) -> dict[str, str]:
+        """Reset, re-seed the graph, then replay the scenario — applying each
+        event to the graph as it lands so polling clients watch it build live.
+
+        Declared as a sync route on purpose: the scenario sleeps between
+        events, and FastAPI runs sync routes in the threadpool so the event
+        loop stays free for concurrent /simulation/events + /graph polls.
+        """
+        demo_repo: NetworkXGraphRepository = app.state.demo_repo
+        demo_repo.drop(app.state.demo_sim_id)
+        demo_repo.create(app.state.demo_sim_id, app.state.env_graph)
+
+        app.state.last_analysis = None
+
+        def _apply(event: CanonicalEvent) -> None:
+            apply_event_to_graph(event, demo_repo, app.state.demo_sim_id)
+
+        app.state.demo_scenario.start(delay=delay, on_event=_apply)
+        return {"status": "started"}
+
+    @app.post("/simulation/reset")
+    async def reset_demo_scenario() -> dict[str, str]:
+        # Reset graph
+        demo_repo: NetworkXGraphRepository = app.state.demo_repo
+        demo_repo.drop(app.state.demo_sim_id)
+        demo_repo.create(app.state.demo_sim_id, app.state.env_graph)
+        
+        app.state.demo_scenario.reset()
+        app.state.last_analysis = None
+        return {"status": "reset"}
+
+    @app.get("/graph")
+    async def get_demo_graph() -> dict[str, Any]:
+        """Returns the demo graph in React Flow format."""
+        import json
+        demo_repo: NetworkXGraphRepository = app.state.demo_repo
+        snap = json.loads(demo_repo.snapshot(app.state.demo_sim_id, 0))
+        return snap
+
+    @app.get("/simulation/events")
+    async def get_demo_events() -> list[dict[str, Any]]:
+        return [e.model_dump(mode="json") for e in app.state.demo_scenario.get_events()]
+
+    @app.post("/analyst/analyze")
+    async def analyze_demo_scenario() -> dict[str, Any]:
+        """Runs the event stream through the analyst and pauses before execution."""
+        from cybersim.analyst.runtime import AnalystRuntime
+
+        runtime: AnalystRuntime = app.state.analyst_runtime
+        events_dicts = app.state.demo_scenario.get_events()
+        # They are Pydantic objects from scenario.py, not dicts
+        events = events_dicts
+        
+        # We must make sure they are CanonicalEvent, which they are
+        outcome = runtime.ingest_window(
+            events,
+            org_id="global",
+            simulation_id=app.state.demo_sim_id,
+            window_seq=0,
+            env=app.state.demo_repo.graph_view(app.state.demo_sim_id)
+        )
+        app.state.last_analysis = outcome
+        
+        if outcome and outcome.result.ok and outcome.proposal:
+            proposal = outcome.proposal
+            return {
+                "threat_card": {
+                    "severity": proposal.severity.value,
+                    "confidence": proposal.confidence,
+                    "threat_class": proposal.threat_class.value,
+                    "rationale": proposal.rationale,
+                    "evidence": [e.summary for e in proposal.evidence],
+                    "attack_path": [str(p) for p in proposal.attack_path] if proposal.attack_path else []
+                },
+                "recommended_actions": [a.model_dump(mode="json") for a in proposal.recommended_actions]
+            }
+        return {"status": "no_threat_detected"}
+
+    @app.post("/analyst/approve-response")
+    async def approve_response() -> dict[str, Any]:
+        """Approve and execute the containment actions."""
+        import datetime
+        import uuid
+
+        from cybersim.graph.event_mutator import apply_response_actions
+
+        outcome = app.state.last_analysis
+        if not outcome or not outcome.result.ok or not outcome.proposal:
+            return {"status": "nothing_to_approve"}
+            
+        proposal = outcome.proposal
+        
+        # Mutate the graph
+        apply_response_actions(app.state.demo_repo, app.state.demo_sim_id, proposal.recommended_actions)
+        
+        # Emit synthetic events to reflect containment
+        for act in proposal.recommended_actions:
+            app.state.demo_scenario.events.append(
+                CanonicalEvent(
+                    event_id=str(uuid.uuid4()),
+                    timestamp=datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z"),
+                    event_type="CONTAINMENT_EXECUTED",
+                    severity="LOW",
+                    source_ip="127.0.0.1",
+                    target_asset="system",
+                    actor="system",
+                    raw_context={"action": act.action_id, "isolate": True, "block": True}
+                )
+            )
+                
+        return {"status": "approved_and_executed"}
+
+    @app.get("/analyst/rag-sources")
+    async def get_rag_sources() -> list[dict[str, Any]]:
+        outcome = app.state.last_analysis
+        if not outcome or not outcome.result.ok or not outcome.proposal:
+            return []
+        proposal = outcome.proposal
+        return [e.model_dump(mode="json") for e in proposal.evidence]
 
     @app.get("/v1/.well-known/jwks.json")
     async def jwks() -> dict[str, Any]:

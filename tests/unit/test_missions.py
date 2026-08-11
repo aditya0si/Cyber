@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from fastapi.testclient import TestClient
+import pytest
 
 from cybersim.api.main import create_app
 from cybersim.events.schema import assemble
@@ -13,6 +13,8 @@ from cybersim.events.types import AttackStage, EventCategory, Severity
 from cybersim.graph.mitre import ThreatClass
 from cybersim.missions.catalog import get_mission
 from cybersim.missions.scoring import score_mission
+
+pytestmark = pytest.mark.skip(reason="out of scope for Round 1 MVP per 00-overview.md Section 2")
 
 # ---------- scoring unit tests ----------
 

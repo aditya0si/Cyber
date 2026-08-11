@@ -21,7 +21,7 @@ from cybersim.analyst.llm.client import LLMClient
 from cybersim.analyst.state import AnalystState
 from cybersim.analyst.tools import AnalystTools
 from cybersim.events.schema import CanonicalEvent
-from cybersim.graph.repo_nx import NetworkXGraphRepository
+from cybersim.graph.repo import GraphRepository
 from cybersim.graph.types import EnvironmentGraph
 
 
@@ -32,7 +32,7 @@ class LangGraphAnalyst:
         self,
         *,
         llm: LLMClient,
-        repo: NetworkXGraphRepository,
+        repo: GraphRepository,
         env: EnvironmentGraph,
         knowledge_repo: Any,
         simulator_id: str,

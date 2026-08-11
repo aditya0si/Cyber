@@ -12,6 +12,7 @@ import pytest
 
 from cybersim.analyst import AnalystRuntime, DetectionProposal, validate
 from cybersim.analyst.dto import ConfidenceBand, DetectionSource, EvidenceItem
+from cybersim.analyst.response_catalog import allowed_actions
 from cybersim.analyst.rules_fallback import analyze_window
 from cybersim.events.bus import InMemoryEventBus
 from cybersim.events.normalizer_tasks import NormalizedSink, NormalizerConsumer
@@ -167,14 +168,7 @@ def test_rule_fallback_produces_detection_for_sqli_indicator_window(
     # The DTO uses immutable Pydantic; *post* validation, items are returned via the outcome.
     outcome = validate(
         proposal,
-        allowed_action_ids=(
-            "block_source_ip",
-            "rotate_credentials",
-            "rate_limit_endpoint",
-            "patch_sqli",
-            "disable_endpoint",
-            "quarantine_host",
-        ),
+        allowed_action_ids=allowed_actions("web"),
         cited_mitre_techniques=sorted({"T1190", "T1078", "T1110", "T1041"}),
         events_by_id={e.event_id: e for e in window},
         graph_paths=paths,

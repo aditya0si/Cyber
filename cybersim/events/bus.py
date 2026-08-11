@@ -59,7 +59,7 @@ class EventBus(Protocol):
 
     async def ack_raw(self, org_id: str, sim_id: str, ref: str) -> None: ...
 
-    async def publish_canonical(self, event: CanonicalEvent) -> bool: ...
+    async def publish_canonical(self, event: CanonicalEvent, org_id: str, sim_id: str) -> bool: ...
 
     def canonical_stream(self, org_id: str, sim_id: str) -> AsyncIterator[CanonicalEvent]: ...
 
@@ -103,8 +103,8 @@ class InMemoryEventBus:
         # In-process impl needs no acknowledgement beyond dedup memoization.
         return None
 
-    async def publish_canonical(self, event: CanonicalEvent) -> bool:
-        buf = self._canonical_buffer(event.org_id, event.simulation_id)
+    async def publish_canonical(self, event: CanonicalEvent, org_id: str, sim_id: str) -> bool:
+        buf = self._canonical_buffer(org_id, sim_id)
         if event.event_id in buf.canonical_ids:
             return False
         buf.canonical_ids.add(event.event_id)

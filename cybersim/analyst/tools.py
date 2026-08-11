@@ -8,14 +8,14 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from cybersim.graph.repo_nx import NetworkXGraphRepository
+from cybersim.graph.repo import GraphRepository
 from cybersim.graph.types import EdgeType, FootholdState, NodeKind
 
 
 class AnalystTools:
     """Graph + state tools bound to one simulation (docs/11 §4)."""
 
-    def __init__(self, repo: NetworkXGraphRepository, simulation_id: str) -> None:
+    def __init__(self, repo: GraphRepository, simulation_id: str) -> None:
         self._repo = repo
         self._sim_id = simulation_id
 

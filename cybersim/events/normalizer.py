@@ -137,31 +137,45 @@ class Normalizer:
         corr_key = self._correlation_key(raw, env)
 
         seq = self._next_seq(simulation_id)
-        return assemble(
+        import datetime
+        dt = datetime.datetime.fromtimestamp(raw.sim_time_ms / 1000.0, tz=datetime.timezone.utc)
+        sev_str = severity_hint.value.upper()
+        if sev_str == "INFO":
+            sev_str = "LOW"
+        
+        return CanonicalEvent(
             event_id=raw.id,
-            simulation_id=simulation_id,
-            org_id=org_id,
-            sequence=seq,
-            sim_time_ms=raw.sim_time_ms,
-            received_at_ms=received_at_ms,
-            origin=raw.origin,
-            raw_type=raw.type,
-            category=category,
-            subtype=subtype,
-            severity_hint=severity_hint,
-            attack_stage=attack_stage,
-            target_node_ids=tuple(target_nodes),
-            source_node_id=source_node,
-            via_edge_ids=tuple(via_edges),
-            mitre_tactics=tuple(t for t in mitre if t.startswith("TA")),
-            mitre_techniques=tuple(
-                t for t in mitre if t.startswith("T") and not t.startswith("TA")
-            ),
-            owasp_refs=owasp,
-            payload=_scrub_payload(raw.payload),
-            raw_ref=raw.id,
-            correlation_key=corr_key,
-            benign=bool(raw.benign),
+            timestamp=dt.isoformat(),
+            event_type=raw.type,
+            severity=sev_str,  # type: ignore[arg-type]
+            source_ip=raw.src_ip or "unknown",
+            target_asset=raw.node_ref or "unknown",
+            actor=raw.payload.get("username", raw.payload.get("account_id", "unknown")),
+            raw_context={
+                "simulation_id": simulation_id,
+                "org_id": org_id,
+                "sequence": seq,
+                "sim_time_ms": raw.sim_time_ms,
+                "received_at_ms": received_at_ms,
+                "origin": raw.origin,
+                "raw_type": raw.type,
+                "category": category.value,
+                "subtype": subtype,
+                "severity_hint": severity_hint.value,
+                "attack_stage": attack_stage.value if attack_stage else None,
+                "target_node_ids": tuple(target_nodes),
+                "source_node_id": source_node,
+                "via_edge_ids": tuple(via_edges),
+                "mitre_tactics": tuple(t for t in mitre if t.startswith("TA")),
+                "mitre_techniques": tuple(
+                    t for t in mitre if t.startswith("T") and not t.startswith("TA")
+                ),
+                "owasp_refs": owasp,
+                "payload": _scrub_payload(raw.payload),
+                "raw_ref": raw.id,
+                "correlation_key": corr_key,
+                "benign": bool(raw.benign),
+            },
         )
 
     # ----- public: stream helper -----------------------------------------
@@ -405,22 +419,32 @@ class Normalizer:
     ) -> CanonicalEvent:
         """Drop unknown raw types into a SYSTEM 'unknown_raw_type' event."""
         seq = self._next_seq(simulation_id)
-        return assemble(
+        import datetime
+        dt = datetime.datetime.fromtimestamp(raw.sim_time_ms / 1000.0, tz=datetime.timezone.utc)
+        return CanonicalEvent(
             event_id=raw.id,
-            simulation_id=simulation_id,
-            org_id=org_id,
-            sequence=seq,
-            sim_time_ms=raw.sim_time_ms,
-            received_at_ms=received_at_ms,
-            origin=raw.origin,
-            raw_type=raw.type,
-            category=EventCategory.SYSTEM,
-            subtype=f"unknown_raw_type:{raw.origin}:{raw.type}",
-            severity_hint=Severity.LOW,
-            payload={"raw": raw.model_dump()},
-            raw_ref=raw.id,
-            correlation_key=None,
-            benign=False,
+            timestamp=dt.isoformat(),
+            event_type=raw.type,
+            severity="LOW",
+            source_ip=raw.src_ip or "unknown",
+            target_asset=raw.node_ref or "unknown",
+            actor=raw.payload.get("username", raw.payload.get("account_id", "unknown")),
+            raw_context={
+                "simulation_id": simulation_id,
+                "org_id": org_id,
+                "sequence": seq,
+                "sim_time_ms": raw.sim_time_ms,
+                "received_at_ms": received_at_ms,
+                "origin": raw.origin,
+                "raw_type": raw.type,
+                "category": EventCategory.SYSTEM.value,
+                "subtype": f"unknown_raw_type:{raw.origin}:{raw.type}",
+                "severity_hint": Severity.LOW.value,
+                "payload": {"raw": raw.model_dump()},
+                "raw_ref": raw.id,
+                "correlation_key": None,
+                "benign": False,
+            }
         )
 
 

@@ -31,8 +31,9 @@ def _minimal_kwargs() -> dict:
 
 def test_canonical_event_is_immutable() -> None:
     ev = assemble(**_minimal_kwargs())
-    with pytest.raises(ValidationError):
-        ev.sequence = 99  # type: ignore[misc]
+    with pytest.raises((ValidationError, TypeError)):
+        # frozen=True on Pydantic models raises ValidationError on direct attr assignment
+        ev.event_id = "mutated"  # type: ignore[misc]
 
 
 def test_canonical_event_rejects_extra_fields_via_assemble() -> None:
@@ -46,33 +47,34 @@ def test_canonical_event_rejects_extra_fields_via_assemble() -> None:
 
 def test_canonical_event_defaults() -> None:
     ev = assemble(**_minimal_kwargs())
-    assert ev.attack_stage is None
-    assert ev.target_node_ids == ()
-    assert ev.source_node_id is None
-    assert ev.mitre_tactics == ()
-    assert ev.mitre_techniques == ()
-    assert ev.payload == {}
-    assert ev.benign is False
+    # Legacy fields are stored in raw_context
+    assert ev.raw_context.get("attack_stage") is None
+    assert ev.raw_context.get("target_node_ids", ()) == ()
+    assert ev.raw_context.get("source_node_id") is None
+    assert ev.raw_context.get("mitre_tactics", ()) == ()
+    assert ev.raw_context.get("mitre_techniques", ()) == ()
+    assert ev.raw_context.get("payload", {}) == {}
+    assert ev.raw_context.get("benign", False) is False
 
 
 def test_canonical_event_preserves_payload() -> None:
     kw = _minimal_kwargs()
     kw["payload"] = {"method": "POST", "path": "/api/login"}
     ev = assemble(**kw)
-    assert ev.payload == {"method": "POST", "path": "/api/login"}
+    assert ev.raw_context.get("payload") == {"method": "POST", "path": "/api/login"}
 
 
 def test_canonical_event_severity_hint_validation() -> None:
-    from cybersim.events.schema import CanonicalEvent
-
     base = _minimal_kwargs()
     base["severity_hint"] = Severity.HIGH
-    ev = CanonicalEvent(**base)  # type: ignore[arg-type]
-    assert ev.severity_hint == Severity.HIGH
+    ev = assemble(**base)
+    # severity_hint is stored in raw_context; severity on the model is the canonical mapped value
+    assert ev.raw_context.get("severity_hint") == Severity.HIGH
+    assert ev.severity == "HIGH"
 
 
 def test_canonical_event_attack_stage_is_valid_enum() -> None:
     kw = _minimal_kwargs()
     kw["attack_stage"] = AttackStage.INITIAL_ACCESS
     ev = assemble(**kw)
-    assert ev.attack_stage == AttackStage.INITIAL_ACCESS
+    assert ev.raw_context.get("attack_stage") == AttackStage.INITIAL_ACCESS

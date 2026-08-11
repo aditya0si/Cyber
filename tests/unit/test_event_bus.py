@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from cybersim.events.bus import InMemoryEventBus
-from cybersim.events.schema import assemble
+from cybersim.events.schema import CanonicalEvent
 from cybersim.events.types import EventCategory, Severity
 from cybersim.simulation.base import RawEvent
 
@@ -73,34 +73,31 @@ async def test_ack_raw_is_a_noop() -> None:
 # ---------- Canonical event round-trip ----------
 
 
-def _canonical(event_id: str) -> object:
-    return assemble(
+def _canonical(event_id: str) -> CanonicalEvent:
+    return CanonicalEvent(
         event_id=event_id,
-        simulation_id="sim-c",
-        org_id="org_demo",
-        sequence=0,
-        sim_time_ms=0,
-        received_at_ms=1,
-        origin="web",
-        raw_type="http.request",
-        category=EventCategory.HTTP,
-        subtype="http_request",
-        severity_hint=Severity.INFO,
+        timestamp="2026-08-09T00:00:00Z",
+        event_type="LOGIN_FAILED",
+        severity="MEDIUM",
+        source_ip="192.168.1.5",
+        target_asset="auth-api",
+        actor="unknown",
+        raw_context={},
     )
 
 
 @pytest.mark.asyncio
 async def test_publish_canonical_returns_true_on_new() -> None:
     bus = InMemoryEventBus()
-    assert await bus.publish_canonical(_canonical("c-1"))  # type: ignore[arg-type]
+    assert await bus.publish_canonical(_canonical("c-1"), "org_demo", "sim-c")
     assert len(bus.canonical_history("org_demo", "sim-c")) == 1
 
 
 @pytest.mark.asyncio
 async def test_publish_canonical_dedup() -> None:
     bus = InMemoryEventBus()
-    assert await bus.publish_canonical(_canonical("c-1"))  # type: ignore[arg-type]
-    assert not await bus.publish_canonical(_canonical("c-1"))  # type: ignore[arg-type]
+    assert await bus.publish_canonical(_canonical("c-1"), "org_demo", "sim-c")
+    assert not await bus.publish_canonical(_canonical("c-1"), "org_demo", "sim-c")
     assert len(bus.canonical_history("org_demo", "sim-c")) == 1
 
 
@@ -108,7 +105,7 @@ async def test_publish_canonical_dedup() -> None:
 async def test_canonical_stream_consumes_in_order() -> None:
     bus = InMemoryEventBus()
     for i in range(2):
-        await bus.publish_canonical(_canonical(f"c-{i}"))  # type: ignore[arg-type]
+        await bus.publish_canonical(_canonical(f"c-{i}"), "org_demo", "sim-c")
     seen: list[str] = []
     gen = bus.canonical_stream("org_demo", "sim-c")
     for _ in range(2):

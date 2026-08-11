@@ -51,7 +51,7 @@ def primary_events_for_query(events: list[CanonicalEvent], max_count: int = 5) -
     """
     ids: list[str] = []
     for ev in events:
-        if ev.benign:
+        if ev.raw_context.get("benign", False):
             continue
         if ev.event_id not in ids:
             ids.append(ev.event_id)

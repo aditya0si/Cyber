@@ -18,6 +18,9 @@ _ALLOWED: Mapping[str, tuple[str, ...]] = {
         "patch_sqli",
         "rotate_credentials",
         "quarantine_host",
+        "isolate_account",
+        "revoke_sessions",
+        "block_database",
     ),
     "api": (
         "block_source_ip",
