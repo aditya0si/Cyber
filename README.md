@@ -1,146 +1,138 @@
-# CyberSim — AI-Powered Cybersecurity Simulation Platform
+# 🛡️ CyberSim AI 
 
-A real-time attack simulation engine with a LangGraph-powered AI analyst, RAG knowledge retrieval, and a React Flow attack graph frontend.
+**Autonomous Cybersecurity Simulation & Response Platform**
 
-## What it does
 
-CyberSim runs parameterised multi-stage attack scenarios (credential brute-force → privilege escalation → data exfiltration) against a modelled environment graph. As events fire, a rule-based or LLM-backed analyst pipeline detects threat patterns, cites evidence, and recommends containment actions. A human operator approves before anything executes — then the graph mutates and the frontend reflects the change live.
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/release/python-3110/)
+[![Next.js 14](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
 
-**Core pipeline:**
-```
-CredentialCompromiseScenario
-  → CanonicalEvent stream
-  → NetworkXGraphRepository (ASSET/SERVICE/USER/ATTACK/EVENT nodes)
-  → AnalystRuntime (rules_fallback | LangGraph+LLM)
-      → InMemoryKnowledgeRepository (TF-IDF or SentenceTransformer RAG)
-  → DetectionProposal → human approval gate
-  → apply_response_actions (protocol-only mutations)
-  → React Flow graph update
-```
+CyberSim provides a controlled environment to simulate cyberattacks, generate realistic telemetry, and evaluate AI-driven threat detection and response capabilities. 
+
+Unlike traditional static security tools, CyberSim is built around an **evolving attack graph**. As events fire, a LangGraph-powered AI analyst correlates structured telemetry, maps it against the live environment graph, cites RAG-backed evidence, and recommends containment actions. A human operator approves the action — the graph mutates, and the frontend reflects the changes in real-time.
 
 ---
 
-## Project structure
+## Architecture
 
+Our verified end-to-end architecture ensures determinism, speed, and clear observability. 
+
+```text
+Simulation Engine (Event Generators)
+       │
+       ▼
+ WebSocket & REST Event Bus (CanonicalEvent Schema)
+       │
+       ├─►  NetworkX Graph Engine (In-Memory Live State)
+       │         └─ Assets, Services, Users, Attack Nodes
+       │
+       ▼
+  LangGraph AI Analyst Pipeline
+       ├─ Threat Detection & Correlation
+       ├─ RAG Evidence Retrieval (MITRE ATT&CK & OWASP)
+       └─ Response Planner (Generates DetectionProposals)
+       │
+       ▼
+ Human-in-the-Loop Approval Gate (Dashboard UI)
+       │
+       ▼
+ Graph Mutator (Applies Containment & Network Isolation)
+       │
+       ▼
+ Live React Flow UI Update (Real-time Feedback Loop)
 ```
-cybersim/
-  api/            FastAPI app — /graph, /simulation/*, /analyst/*
-  analyst/        LangGraph nodes, runtime, rules fallback, RAG tools
-  events/         CanonicalEvent schema (8-field), event bus, normalizer
-  graph/          GraphRepository protocol + NetworkX implementation
-    repo.py       Protocol (the only surface callers should reference)
-    repo_nx.py    NetworkX implementation (swap target)
-    event_mutator.py  Event→graph mutations, containment actions
-    types.py      NodeKind, EdgeType, FootholdState, AttackPath, …
-  knowledge/      InMemoryKnowledgeRepository, embedder seam
-  simulation/     Scenario runner, web/api/network/supply simulators
-instructions/     Stage-by-stage build spec (00-overview through 03)
-tests/            222 passing, 14 skipped (missions — out of scope)
-```
+
+### Core Technologies
+- **Frontend:** Next.js 14, React, Tailwind CSS, TypeScript, React Flow, Zustand.
+- **Backend:** FastAPI, Python 3.11+, Pydantic.
+- **AI / LLM:** LangGraph, OpenAI SDK, SentenceTransformers (local RAG), Ollama (Local AI support via `gemma3:4b`).
+- **Graph Engine:** NetworkX (in-memory for speed and local determinism).
 
 ---
 
-## Getting started
+## Quickstart & Setup
 
-**Prerequisites:** Python 3.11+, [uv](https://github.com/astral-sh/uv)
+We have provided automated setup scripts for both Linux/macOS and Windows to install dependencies and run the entire stack with a single command.
 
+### Prerequisites
+- **Python 3.11+**
+- **Node.js** (v18+)
+- [**uv**](https://github.com/astral-sh/uv) (Extremely fast Python package installer: `pip install uv`)
+- [**pnpm**](https://pnpm.io/) (`npm install -g pnpm`)
+
+### One-Click Run (Recommended)
+
+**Linux / macOS:**
 ```bash
-# Clone and install
-git clone https://github.com/<your-fork>/Cyber.git
-cd Cyber
-uv sync
+# Make the script executable
+chmod +x run.sh
 
-# Run the test suite (should be 222 passed, 14 skipped)
-uv run pytest tests/ -v
-
-# Start the API server
-uv run uvicorn cybersim.api.main:create_app --factory --reload
+# Run the automated setup and launch services
+./run.sh
 ```
 
-The API is at `http://localhost:8000`. Key endpoints:
-
-| Method | Path | Purpose |
-|---|---|---|
-| `POST` | `/simulation/start` | Seed the demo scenario and graph |
-| `GET` | `/simulation/events` | All emitted CanonicalEvents |
-| `GET` | `/graph` | React Flow-compatible graph snapshot |
-| `POST` | `/analyst/analyze` | Run analyst pipeline, return threat card |
-| `POST` | `/analyst/approve-response` | Execute containment, emit synthetic events |
-| `GET` | `/analyst/rag-sources` | Evidence entries cited by last threat card |
-| `POST` | `/simulation/reset` | Clear and re-seed graph |
-
----
-
-## Architecture decisions worth knowing before building further
-
-### CanonicalEvent is an 8-field schema — don't expand it
-`event_id`, `timestamp`, `event_type`, `severity`, `source_ip`, `target_asset`, `actor`, `raw_context`. Everything else goes in `raw_context`. This was a deliberate constraint to keep the event bus contract narrow.
-
-### GraphRepository is the only graph surface you should call
-`cybersim/graph/repo.py` defines the `GraphRepository` Protocol. All business code — analyst, API, tests — calls only methods on this Protocol. `NetworkXGraphRepository` is named only at the composition root (`api/main.py`). If you want to swap NetworkX for Neo4j or a Postgres graph, implement the Protocol and change one line.
-
-Do not import `NetworkXGraphRepository` in analyst code. Do not call `_require`, `.env`, `.overlay` outside `repo_nx.py`. These constraints are enforced by `tests/graph/test_02b_nodekind_and_protocol.py` — both a regex scan and a `MagicMock(spec=GraphRepository)` hermetic boundary test.
-
-### NodeKind taxonomy
-- **Environment layer** (infrastructure): `ASSET`, `SERVICE`, `CREDENTIAL`, `DATA`, `NETWORK_ZONE`, `EDGE_DEVICE`
-- **Overlay layer** (attack narrative): `USER`, `ATTACK`, `EVENT`, `VULNERABILITY`
-
-### Analyst pipeline modes
-- `mode="rules"` (default): deterministic rule-based fallback via `rules_fallback.analyze_window()`. No LLM, no network calls. Safe for tests and offline demo.
-- `mode="ai"`: LangGraph pipeline with LLM calls (needs `LLMClient` wired and API keys in `.env`). Falls back to rules on validation failure.
-
-### RAG embedder fallback
-`cybersim/knowledge/embeddings.get_best_embedder()` tries `SentenceTransformer("all-MiniLM-L6-v2")` first; falls back to `TfidfEmbedder` if the model isn't cached or `sentence-transformers` isn't installed. Tests run entirely offline via the fallback.
-
----
-
-## How to build further
-
-### Stage 04 — Frontend (React Flow) — DONE, live at `/demo`
-The four-panel demo dashboard is implemented in `apps/web/src/app/demo/page.tsx`
-(unauthenticated route). Backend: `cd cybersim && uv run uvicorn cybersim.api.main:create_app --factory`; frontend: `cd apps/web && pnpm dev`, then open `http://localhost:3000/demo`. Click Start Simulation — events stream in, the attack graph builds live (React Flow + dagre auto-layout), the analyst card appears with evidence + a real graph-query attack path, and `Execute Response` (the human-approval gate → `POST /analyst/approve-response`) flips the graph to isolated/blocked/contained state.
-
-### Stage 05 — LLM analyst (real mode)
-Set `OPENAI_API_KEY` in `.env`. Pass `LLMClient` and `knowledge_repo` into `AnalystRuntime(mode="ai", llm=..., knowledge_repo=...)`. The LangGraph pipeline in `cybersim/analyst/graph.py` is already wired — it just needs a live LLM.
-
-### Stage 06 — Additional simulators
-Add `cybersim/simulation/<name>/simulator.py` with a `build_environment_graph(scenario_id)` function returning an `EnvironmentGraph`. Add the scenario's event sequence as a `*Scenario` class matching the interface in `scenario.py`. Register in the simulator catalog.
-
-### Stage 07 — Swap graph backend
-Implement `GraphRepository` Protocol (all 21 methods in `repo.py`) for your target backend (Neo4j, Postgres graph extension, etc.). At `api/main.py` startup, replace `NetworkXGraphRepository()` with your new class. Nothing else changes — the protocol is the only surface.
-
-### Adding knowledge base entries
-```python
-from cybersim.knowledge.repo import InMemoryKnowledgeRepository
-from cybersim.knowledge.entries import KnowledgeEntry
-
-repo.upsert_entry(KnowledgeEntry(
-    entry_id="T1110",
-    source="mitre",
-    source_id="T1110",
-    kind="technique",
-    title="Brute Force",
-    content="...",
-))
+**Windows:**
+```bat
+# Double-click run.bat in your file explorer, OR run in Command Prompt:
+run.bat
 ```
 
+> **Note:** The script will automatically run `uv sync` to install Python dependencies, install frontend `pnpm` packages, and boot both the FastAPI backend and Next.js frontend in parallel.
+
+### Manual Build & Run Instructions
+If you prefer to run things manually:
+
+1. **Backend:**
+   ```bash
+   uv sync
+   uv run uvicorn cybersim.api.main:create_app --factory --reload --port 8000
+   ```
+2. **Frontend:**
+   ```bash
+   cd apps/web
+   pnpm install
+   pnpm run dev
+   ```
+
 ---
 
-## What's confirmed working (tested)
+## How to Use & Login
 
-- Full event schema validation — 8-field `CanonicalEvent`, no extra fields
-- Event → graph mutation for all four scenario stages with correct NodeKinds
-- GraphRepository protocol enforcement — regex + `MagicMock(spec=GraphRepository)` hermetic test
-- Rules-based analyst: `CredentialCompromiseScenario` triggers `credential_brute_force` / `credential_compromise` / `data_exfiltration` detections
-- RAG retrieval: TF-IDF fallback works offline; SentenceTransformer used when available
-- Human approval gate: `/analyst/analyze` → `/analyst/approve-response` two-call pattern
-- Live attack path in the threat card (graph query, not hardcoded): `Attacker → Attack (brute_force) → /api/login → User Database → user_data`
-- Full demo dashboard at `/demo`: event stream, React Flow attack graph (nodes color by kind, border by foothold state), analyst card, Execute button — all polling real backend state, zero external API calls
-- All 222 tests pass, 14 skipped (mission-mode — out of scope for Stage 1–3 demo)
+Once the application is running, the services will be available at:
+- **Frontend UI:** [http://localhost:3000](http://localhost:3000)
+- **Backend API:** [http://localhost:8000](http://localhost:8000)
 
-## What's not done yet
+### Login Credentials
+Navigate to the Frontend UI and use the following credentials to access the SOC Dashboard:
+- **Username:** `admin`
+- **Password:** `admin`
 
-- LLM mode end-to-end (wiring only, not tested with live API)
-- Postgres persistence (event log, graph deltas) — currently all in-memory
-- Multi-tenancy / org isolation — EventBus routes by `org_id` parameter, not schema field; full isolation not implemented
-- Mission scoring DSL (skipped tests)
+### Running a Simulation
+1. **Select a Scenario:** Upon logging in, you will be presented with a Scenario Library (e.g., API IDOR, Brute Force). Click **Launch** on your desired scenario.
+2. **Monitor the Live Feed:** Watch the **Event Stream** populate with `CanonicalEvents` generated by the backend simulation engine.
+3. **Observe the Attack Graph:** The center panel visualizes the network and active threats. Watch nodes pulse red as the attacker pivots through the environment.
+4. **Review AI Analysis:** The **AI Security Analyst** panel will synthesize the events, query the RAG database, and propose a containment strategy.
+5. **Human Approval:** Click **Execute Response** on the AI card. The graph will mutate (isolating the compromised node) and the simulation loop completes.
+
+---
+
+## Local AI Setup (Optional)
+
+By default, the platform can run entirely on rule-based fallbacks (zero API keys required) to guarantee the demo works offline. However, you can seamlessly integrate a local LLM:
+
+1. Install [Ollama](https://ollama.com/).
+2. Run `ollama run gemma3:4b` to pull the local model.
+3. Create a `.env` file in the root directory:
+   ```bash
+   LLM_PROVIDER=ollama
+   LLM_MODEL_TRIAGE=gemma3:4b
+   ```
+The AI Security Analyst will now use your local GPU/CPU for threat intelligence!
+(You can use any model you prefer by changing model name and provider in `.env`)
+
+---
+
+## Architectural Constraints & Data Contracts
+
+- **CanonicalEvent Schema:** We enforce a strict 8-field schema (`event_id`, `timestamp`, `event_type`, `severity`, `source_ip`, `target_asset`, `actor`, `raw_context`). This guarantees a clean telemetry pipeline and eliminates fragile regex-based log parsing.
+- **Protocol-Driven:** All business code interacts with the graph via the `GraphRepository` Protocol, allowing NetworkX to be swapped out for Neo4j in production without touching core logic.
+- **Zero-DB Demo:** To ensure flawless hackathon execution, we use an in-memory graph repository for state management. No Postgres or Docker requirements are needed to evaluate the product.
