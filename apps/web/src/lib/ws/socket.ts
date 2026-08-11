@@ -65,7 +65,10 @@ class SimulationSocket {
     ws.onmessage = (ev) => {
       try {
         const frame = JSON.parse(ev.data as string) as WSFrame;
-        if (frame.kind === "event.upsert") this.lastSeq = frame.event.sequence;
+        if (frame.kind === "event.upsert") {
+          const ctx = frame.event.raw_context as Record<string, unknown>;
+          this.lastSeq = typeof ctx?.sequence === "number" ? ctx.sequence : this.lastSeq;
+        }
         for (const l of this.listeners) l(frame);
       } catch {
         /* malformed frame — ignore */
