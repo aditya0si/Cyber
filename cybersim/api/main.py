@@ -58,6 +58,12 @@ def create_app(
     app.state.ws_enabled = ws_enabled
     app.state.demo_scenario = CredentialCompromiseScenario()
 
+    # Seed default admin user
+    try:
+        app.state.auth_repo.create_user("admin", "admin", org_name="Admin Org")
+    except ValueError:
+        pass
+
     # Checkpoint A: Demo graph singleton
     from cybersim.graph.repo_nx import NetworkXGraphRepository
     from cybersim.simulation.web.simulator import build_environment_graph
@@ -71,7 +77,33 @@ def create_app(
     app.state.env_graph = env
 
     from cybersim.analyst.runtime import AnalystRuntime
-    app.state.analyst_runtime = AnalystRuntime(repo=demo_repo, simulator_id="web", mode="rules")
+    from cybersim.analyst.llm.router import build_router
+
+    settings = get_settings()
+    _mode = analyst_mode
+
+    # Build LLM client if a real provider is configured
+    _llm = None
+    if settings.ai_enabled:
+        _mode = "ai"
+        if settings.llm_provider == "ollama":
+            _router = build_router(
+                provider="ollama",
+                api_key=settings.ollama_api_key,
+                model=settings.llm_model_triage,
+                base_url=settings.ollama_base_url,
+            )
+        else:
+            _router = build_router(
+                provider=settings.llm_provider,
+                api_key=settings.openai_api_key or settings.anthropic_api_key,
+                model=settings.llm_model_triage,
+            )
+        _llm = _router.client
+
+    app.state.analyst_runtime = AnalystRuntime(repo=demo_repo, simulator_id="web", mode=_mode, llm=_llm)
+    app.state.analyst_mode = _mode
+    app.state.analyst_llm = _llm
     app.state.last_analysis = None
 
     app.add_middleware(IdempotencyMiddleware)

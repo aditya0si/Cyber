@@ -24,12 +24,6 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
               Features
             </Link>
             <Link
-              href="/pricing"
-              className="text-cs-text-secondary hover:text-cs-text-primary"
-            >
-              Pricing
-            </Link>
-            <Link
               href="/login"
               className="rounded-cs-md border-cs-border-default hover:bg-cs-neutral-3 border px-3 py-1.5"
             >

@@ -8,6 +8,7 @@ from typing import Any
 from cybersim.analyst.llm.client import LLMClient
 from cybersim.analyst.llm.fake_client import FakeLLMClient
 from cybersim.analyst.llm.openai_client import OpenAIClient
+from cybersim.analyst.llm.ollama_client import OllamaClient
 
 
 @dataclass(frozen=True)
@@ -30,12 +31,19 @@ def build_router(
     provider: str = "openai",
     api_key: str = "",
     model: str = "gpt-4o-mini",
+    base_url: str | None = None,
     script: list[dict[str, Any]] | None = None,
 ) -> LLMRouter:
     if provider == "fake" or not api_key:
         client: LLMClient = FakeLLMClient(script=script)
+    elif provider == "ollama":
+        client = OllamaClient(
+            model=model,
+            base_url=base_url or "http://localhost:11434/v1",
+            api_key=api_key or "ollama",
+        )
     elif provider == "openai":
-        client = OpenAIClient(api_key=api_key, model=model)
+        client = OpenAIClient(api_key=api_key, model=model, base_url=base_url)
     else:
         raise ValueError(f"unknown LLM provider {provider!r}")
     return LLMRouter(client=client)

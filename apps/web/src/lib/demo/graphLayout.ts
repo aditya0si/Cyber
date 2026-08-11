@@ -57,9 +57,18 @@ export function toReactFlow(snap: GraphSnapshot): {
     const kindBorder = KIND_BORDER[n.kind] ?? "var(--cs-border-strong)";
     const stateBorder = FOOTHOLD_BORDER[n.foothold_state];
     const stateLabel = nodeStateLabel(n);
+    
+    let animationClass = "";
+    if (n.foothold_state === "compromised" || n.foothold_state === "foothold") {
+      animationClass = "animate-pulse-critical z-10";
+    } else if (n.foothold_state === "attempted" || n.foothold_state === "recon") {
+      animationClass = "animate-pulse-medium z-10";
+    }
+
     return {
       id: n.id,
       position: { x: 0, y: 0 },
+      className: animationClass,
       data: {
         label: n.label,
         kind: n.kind,

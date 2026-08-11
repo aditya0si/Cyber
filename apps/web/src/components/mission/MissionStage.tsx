@@ -81,7 +81,10 @@ export function MissionStage({
     return () => window.clearInterval(timer);
   }, [simId]);
 
-  const simTimeMs = useMemo(() => events.at(-1)?.sim_time_ms ?? 0, [events]);
+  const simTimeMs = useMemo(() => {
+    const lastEvent = events.at(-1);
+    return lastEvent ? new Date(lastEvent.timestamp).getTime() : 0;
+  }, [events]);
   const progressPct = Math.min(
     100,
     (simTimeMs / 1000 / mission.duration_sec) * 100,
@@ -246,29 +249,33 @@ export function MissionStage({
                   selection.kind === "event" ? (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium">
-                        {selection.event.subtype}
+                        {selection.event.event_type}
                       </h3>
                       <p className="text-cs-text-tertiary font-mono text-xs">
                         {selection.event.event_id}
                       </p>
                       <dl className="space-y-1 text-xs">
                         <div className="flex justify-between">
-                          <dt className="text-cs-text-tertiary">Origin</dt>
-                          <dd>{selection.event.origin}</dd>
+                          <dt className="text-cs-text-tertiary">Timestamp</dt>
+                          <dd>{new Date(selection.event.timestamp).toLocaleString()}</dd>
                         </div>
                         <div className="flex justify-between">
-                          <dt className="text-cs-text-tertiary">Stage</dt>
-                          <dd>{selection.event.attack_stage ?? "—"}</dd>
+                          <dt className="text-cs-text-tertiary">Source IP</dt>
+                          <dd>{selection.event.source_ip}</dd>
                         </div>
                         <div className="flex justify-between">
-                          <dt className="text-cs-text-tertiary">MITRE</dt>
+                          <dt className="text-cs-text-tertiary">Target Asset</dt>
+                          <dd>{selection.event.target_asset}</dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-cs-text-tertiary">Actor</dt>
                           <dd className="font-mono">
-                            {selection.event.mitre_techniques.join(", ") || "—"}
+                            {selection.event.actor}
                           </dd>
                         </div>
                       </dl>
                       <pre className="rounded-cs-sm bg-cs-neutral-1 text-cs-text-secondary overflow-x-auto p-2 font-mono text-xs">
-                        {JSON.stringify(selection.event.payload, null, 2)}
+                        {JSON.stringify(selection.event.raw_context, null, 2)}
                       </pre>
                     </div>
                   ) : (

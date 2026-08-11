@@ -18,10 +18,10 @@ from cybersim.infra.errors import ErrorCode, problem_detail
 
 #: (route_prefix, limit, window_sec) â€” docs/08 Â§6 default tier.
 _DEFAULT_LIMITS: tuple[tuple[str, int, int], ...] = (
-    ("/v1/auth/", 5, 60),  # auth endpoints: 5/min anonymous
-    ("/v1/simulations", 20, 3600),  # sim starts: 20/hr
-    ("/v1/knowledge/", 60, 60),  # knowledge: 60/min
-    ("/v1/", 300, 60),  # default: 300/min
+    ("/v1/auth/", 100, 60),  # auth endpoints: 100/min anonymous
+    ("/v1/simulations", 200, 3600),  # sim starts: 200/hr
+    ("/v1/knowledge/", 600, 60),  # knowledge: 600/min
+    ("/v1/", 3000, 60),  # default: 3000/min
 )
 
 _RATE_LIMIT_HEADERS = ("RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset")
