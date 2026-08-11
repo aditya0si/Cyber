@@ -8,7 +8,6 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Activity,
-  CreditCard,
   FlaskConical,
   LogOut,
   Network,
@@ -19,16 +18,12 @@ import { clsx } from "clsx";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { api, authedRequest } from "@/lib/api/client";
-import type { BillingPlan } from "@/lib/api/types";
 import { Button } from "@/components/ui/Button";
-import { PlanBadge } from "@/components/billing/PlanBadge";
-import { UsageMeter } from "@/components/billing/UsageMeter";
 
 const NAV = [
   { href: "/scenarios", label: "Scenario Library", icon: FlaskConical },
   { href: "/simulations", label: "Simulations", icon: Activity },
   { href: "/missions", label: "Missions", icon: Shield },
-  { href: "/billing", label: "Billing", icon: CreditCard },
   { href: "/settings", label: "Account", icon: UserRound },
 ];
 
@@ -36,13 +31,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { me, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
-  const [billing, setBilling] = useState<BillingPlan | null>(null);
-
-  useEffect(() => {
-    void authedRequest(() => api.billingPlan())
-      .then(setBilling)
-      .catch(() => undefined);
-  }, []);
 
   return (
     <div className="bg-cs-neutral-0 text-cs-text-primary flex h-screen">
@@ -90,25 +78,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             {collapsed ? "»" : "Collapse"}
           </button>
-          {!collapsed && billing && (
-            <div className="mb-2 space-y-2 px-1">
-              <div className="flex items-center justify-between">
-                <PlanBadge plan={billing.plan} />
-                <Link
-                  href="/billing"
-                  className="text-cs-text-tertiary hover:text-cs-text-primary text-[11px]"
-                >
-                  usage
-                </Link>
-              </div>
-              <UsageMeter
-                label="Sim minutes"
-                used={billing.current_period_usage.sim_minutes ?? 0}
-                cap={billing.entitlements.sim_minutes_month ?? 0}
-                format={(v) => `${v} min`}
-              />
-            </div>
-          )}
           {!collapsed && me && (
             <div className="flex items-center justify-between px-1 text-xs">
               <span className="text-cs-text-tertiary truncate">{me.email}</span>

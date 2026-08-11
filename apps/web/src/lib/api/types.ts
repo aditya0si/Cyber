@@ -56,27 +56,13 @@ export interface SimulationSummary {
 
 export interface CanonicalEvent {
   event_id: string;
-  simulation_id: string;
-  org_id: string;
-  sequence: number;
-  sim_time_ms: number;
-  received_at_ms: number;
-  origin: string;
-  raw_type: string;
-  category: string;
-  subtype: string;
-  severity_hint: Severity;
-  attack_stage: string | null;
-  target_node_ids: string[];
-  source_node_id: string | null;
-  via_edge_ids: string[];
-  mitre_tactics: string[];
-  mitre_techniques: string[];
-  owasp_refs: string[];
-  payload: Record<string, unknown>;
-  raw_ref: string | null;
-  correlation_key: string | null;
-  benign: boolean;
+  timestamp: string;
+  event_type: string;
+  severity: string;
+  source_ip: string;
+  target_asset: string;
+  actor: string;
+  raw_context: Record<string, unknown>;
 }
 
 export interface EvidenceItem {

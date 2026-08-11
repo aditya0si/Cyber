@@ -58,6 +58,12 @@ def create_app(
     app.state.ws_enabled = ws_enabled
     app.state.demo_scenario = CredentialCompromiseScenario()
 
+    # Seed default admin user
+    try:
+        app.state.auth_repo.create_user("admin", "admin", org_name="Admin Org")
+    except ValueError:
+        pass
+
     # Checkpoint A: Demo graph singleton
     from cybersim.graph.repo_nx import NetworkXGraphRepository
     from cybersim.simulation.web.simulator import build_environment_graph

@@ -8,13 +8,6 @@ import type { CanonicalEvent } from "@/lib/api/types";
 import { SeverityBadge } from "@/components/ui/SeverityBadge";
 import { SEV_BORDER } from "@/lib/ui/severity";
 
-function fmtTime(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  const h = String(Math.floor(s / 3600)).padStart(2, "0");
-  const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
-  const sec = String(s % 60).padStart(2, "0");
-  return `${h}:${m}:${sec}`;
-}
 
 export function EventRow({
   event,
@@ -32,10 +25,10 @@ export function EventRow({
       className={clsx(
         "border-cs-border-subtle hover:bg-cs-neutral-3 border-b px-2 py-1",
         highlighted && "bg-cs-accent-bg",
-        event.severity_hint !== "info" &&
-          `border-l-2 ${SEV_BORDER[event.severity_hint]}`,
+        event.severity.toLowerCase() !== "info" &&
+          `border-l-2 ${SEV_BORDER[event.severity.toLowerCase() as Severity]}`,
       )}
-      aria-label={`event ${event.subtype}`}
+      aria-label={`event ${event.event_type}`}
     >
       <button
         className="flex w-full items-center gap-2 text-left"
@@ -53,23 +46,18 @@ export function EventRow({
           aria-hidden
         />
         <span className="text-cs-text-tertiary shrink-0 font-mono text-xs">
-          {fmtTime(event.sim_time_ms)}
+          {new Date(event.timestamp).toLocaleTimeString()}
         </span>
-        <SeverityBadge severity={event.severity_hint} />
+        <SeverityBadge severity={event.severity.toLowerCase() as Severity} />
         <span className="text-cs-text-tertiary shrink-0 font-mono text-xs">
-          {event.source_node_id ?? event.origin}
+          {event.source_ip}
         </span>
-        <span className="truncate text-sm">{event.subtype}</span>
-        {event.correlation_key && (
-          <span className="text-cs-text-quaternary ml-auto hidden shrink-0 font-mono text-xs md:inline">
-            {event.correlation_key}
-          </span>
-        )}
+        <span className="truncate text-sm">{event.event_type}</span>
       </button>
 
       {open && (
         <pre className="rounded-cs-sm bg-cs-neutral-1 text-cs-text-secondary mt-1 ml-5 overflow-x-auto p-2 font-mono text-xs">
-          {JSON.stringify(event.payload, null, 2)}
+          {JSON.stringify(event.raw_context, null, 2)}
         </pre>
       )}
     </article>

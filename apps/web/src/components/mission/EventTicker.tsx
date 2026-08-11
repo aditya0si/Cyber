@@ -6,13 +6,6 @@ import type { CanonicalEvent } from "@/lib/api/types";
 import { SeverityBadge } from "@/components/ui/SeverityBadge";
 import { clsx } from "clsx";
 
-function fmtTime(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  const h = String(Math.floor(s / 3600)).padStart(2, "0");
-  const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
-  const sec = String(s % 60).padStart(2, "0");
-  return `${h}:${m}:${sec}`;
-}
 
 export function EventTicker({
   events,
@@ -46,16 +39,16 @@ export function EventTicker({
               "border-cs-border-subtle hover:bg-cs-neutral-3 flex items-center gap-2 border-b px-2 py-1 text-left",
               selectedId === ev.event_id && "bg-cs-accent-bg",
             )}
-            aria-label={`event ${ev.subtype}`}
+            aria-label={`event ${ev.event_type}`}
           >
             <span className="text-cs-text-tertiary shrink-0 font-mono text-xs">
-              {fmtTime(ev.sim_time_ms)}
+              {new Date(ev.timestamp).toLocaleTimeString()}
             </span>
-            <SeverityBadge severity={ev.severity_hint} />
+            <SeverityBadge severity={ev.severity.toLowerCase() as any} />
             <span className="text-cs-text-tertiary shrink-0 font-mono text-xs">
-              {ev.source_node_id ?? ev.origin}
+              {ev.source_ip}
             </span>
-            <span className="truncate text-sm">{ev.subtype}</span>
+            <span className="truncate text-sm">{ev.event_type}</span>
           </button>
         ))}
     </div>

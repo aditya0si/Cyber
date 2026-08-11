@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Play } from "lucide-react";
 
@@ -34,7 +34,11 @@ export default function ScenariosPage() {
       .catch((e: Error) => setError(e.message));
   }, []);
 
+  const startingRef = useRef(false);
+
   async function start(scenarioId: string) {
+    if (startingRef.current) return;
+    startingRef.current = true;
     setStarting(scenarioId);
     try {
       const created = await authedRequest(() =>
@@ -44,6 +48,7 @@ export default function ScenariosPage() {
     } catch (e) {
       setError((e as Error).message);
       setStarting(null);
+      startingRef.current = false;
     }
   }
 

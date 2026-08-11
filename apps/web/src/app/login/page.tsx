@@ -20,8 +20,8 @@ function LoginForm() {
   const { login, register } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("admin");
+  const [password, setPassword] = useState("admin");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -58,9 +58,9 @@ function LoginForm() {
         </div>
 
         <label className="block text-sm">
-          <span className="text-cs-text-secondary">Email</span>
+          <span className="text-cs-text-secondary">Email/Username</span>
           <input
-            type="email"
+            type="text"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -75,7 +75,6 @@ function LoginForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            minLength={mode === "register" ? 12 : 1}
             className="rounded-cs-sm border-cs-border-default bg-cs-neutral-1 focus:border-cs-border-focus mt-1 w-full border px-3 py-2 text-sm"
           />
         </label>

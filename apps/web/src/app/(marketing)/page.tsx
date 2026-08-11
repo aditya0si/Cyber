@@ -71,12 +71,6 @@ export default function HomePage() {
           >
             Open the SOC console <ArrowRight className="h-4 w-4" />
           </Link>
-          <Link
-            href="/pricing"
-            className="rounded-cs-md border-cs-border-default hover:bg-cs-neutral-3 inline-flex h-11 items-center px-5 font-medium"
-          >
-            See pricing
-          </Link>
         </div>
       </section>
 

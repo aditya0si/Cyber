@@ -32,6 +32,26 @@ function fmtTime(iso: string): string {
   return `${h}:${m}:${s}`;
 }
 
+function parseEventContext(ev: DemoEvent): string {
+  const ctx = ev.raw_context || {};
+  switch (ev.event_type) {
+    case "LOGIN_FAILED":
+      return `Failed login attempt #${ctx.attempt || "?"} (${ctx.reason || "unknown"})`;
+    case "LOGIN_SUCCESS":
+      return `Successful login via ${ctx.auth_method || "unknown"}`;
+    case "PRIVILEGE_ESCALATION":
+      return `Escalated privileges to ${ctx.new_role || "unknown"}`;
+    case "DB_ACCESS":
+      return `Database query: ${ctx.query || "unknown"}`;
+    case "DATA_TRANSFER":
+      return `Data transfer: ${ctx.bytes_sent || "?"} bytes to ${ctx.destination || "unknown"}`;
+    case "CONTAINMENT_EXECUTED":
+      return `Containment applied: ${ctx.action_id || "unknown"}`;
+    default:
+      return EVENT_LABEL[ev.event_type] ?? ev.event_type;
+  }
+}
+
 export function EventStream({ events }: { events: DemoEvent[] }) {
   const rows = [...events].reverse();
   return (
@@ -46,7 +66,7 @@ export function EventStream({ events }: { events: DemoEvent[] }) {
         return (
           <article
             key={ev.event_id}
-            className={`border-cs-border-subtle border-b border-l-2 px-2 py-1.5 ${SEV_BORDER[sev]}`}
+            className={`border-cs-border-subtle border-b border-l-2 px-2 py-1.5 animate-slide-in ${SEV_BORDER[sev]}`}
           >
             <div className="flex items-center gap-2">
               <span className="text-cs-text-tertiary shrink-0 font-mono text-xs">
@@ -57,8 +77,8 @@ export function EventStream({ events }: { events: DemoEvent[] }) {
               >
                 {ev.severity.toLowerCase()}
               </span>
-              <span className="text-cs-text-secondary truncate text-sm">
-                {EVENT_LABEL[ev.event_type] ?? ev.event_type}
+              <span className="text-cs-text-secondary truncate text-sm" title={parseEventContext(ev)}>
+                {parseEventContext(ev)}
               </span>
               <span className="text-cs-text-quaternary ml-auto shrink-0 font-mono text-xs">
                 {ev.target_asset}

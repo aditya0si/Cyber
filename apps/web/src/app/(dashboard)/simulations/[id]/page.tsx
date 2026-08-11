@@ -178,28 +178,30 @@ export default function SocConsole() {
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
           {selected ? (
             <div className="space-y-3">
-              <h3 className="text-sm font-medium">{selected.subtype}</h3>
+              <h3 className="text-sm font-medium">{selected.event_type}</h3>
               <p className="text-cs-text-tertiary font-mono text-xs">
                 {selected.event_id}
               </p>
               <dl className="space-y-1 text-xs">
                 <div className="flex justify-between">
-                  <dt className="text-cs-text-tertiary">Origin</dt>
-                  <dd>{selected.origin}</dd>
+                  <dt className="text-cs-text-tertiary">Timestamp</dt>
+                  <dd>{new Date(selected.timestamp).toLocaleString()}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-cs-text-tertiary">Stage</dt>
-                  <dd>{selected.attack_stage ?? "—"}</dd>
+                  <dt className="text-cs-text-tertiary">Source IP</dt>
+                  <dd>{selected.source_ip}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-cs-text-tertiary">MITRE</dt>
-                  <dd className="font-mono">
-                    {selected.mitre_techniques.join(", ") || "—"}
-                  </dd>
+                  <dt className="text-cs-text-tertiary">Target Asset</dt>
+                  <dd>{selected.target_asset}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-cs-text-tertiary">Actor</dt>
+                  <dd className="font-mono">{selected.actor}</dd>
                 </div>
               </dl>
               <pre className="rounded-cs-sm bg-cs-neutral-1 text-cs-text-secondary overflow-x-auto p-2 font-mono text-xs">
-                {JSON.stringify(selected.payload, null, 2)}
+                {JSON.stringify(selected.raw_context, null, 2)}
               </pre>
             </div>
           ) : (
