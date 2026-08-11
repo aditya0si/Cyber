@@ -15,6 +15,7 @@ import type { CanonicalEvent, Detection } from "@/lib/api/types";
 import { useSimulationChannel } from "@/lib/ws/useSimulationChannel";
 import { buildNarrative, detectionSummary } from "@/lib/sim/eventNarrative";
 import { Spinner } from "@/components/ui/Spinner";
+import { useResize } from "@/hooks/useResize";
 
 // ────────────────────────────────────────────────
 // Severity → color mappings
@@ -368,8 +369,8 @@ export default function SocConsole() {
   const params = useParams<{ id: string }>();
   const simId = params.id;
 
-  const [initialEvents, setInitialEvents] = useState<CanonicalEvent[]>([]);
-  const [initialDetections, setInitialDetections] = useState<Detection[]>([]);
+  const [polledEvents, setPolledEvents] = useState<CanonicalEvent[]>([]);
+  const [polledDetections, setPolledDetections] = useState<Detection[]>([]);
   const [scenarioTitle, setScenarioTitle] = useState("Simulation");
   const [loaded, setLoaded] = useState(false);
   const [selected, setSelected] = useState<CanonicalEvent | null>(null);
@@ -378,48 +379,68 @@ export default function SocConsole() {
   const live = useSimulationChannel(simId);
   const feedRef = useRef<HTMLDivElement>(null);
 
+  // --- Initial load + polling ---
+  // The simulation runs as a backend background task that often completes
+  // before the WebSocket connects. So we poll the REST API every 1.5 s until
+  // the sim is "completed" and we have events, then stop.
   useEffect(() => {
     if (!simId) return;
-    void (async () => {
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
+    async function fetchAll() {
       try {
         const [events, detections, simDetail] = await Promise.all([
           authedRequest(() => api.events(simId)),
           authedRequest(() => api.detections(simId)),
           authedRequest(() => api.simulation(simId)),
         ]);
-        setInitialEvents(events.items);
-        setInitialDetections(detections);
-        // Try to get scenario title from simulation record
-        const scenId = String((simDetail as unknown as Record<string, unknown>).scenario_id ?? "");
+        if (cancelled) return;
+        setPolledEvents(events.items);
+        setPolledDetections(detections);
+        const raw = simDetail as unknown as Record<string, unknown>;
+        const scenId = String(raw.scenario_id ?? "");
         if (scenId) setScenarioTitle(scenId.replace(/[._]/g, " "));
-      } catch {
-        /* ignore */
-      } finally {
         setLoaded(true);
+
+        // Keep polling while sim hasn't finished or we have no events yet
+        const status = String(raw.status ?? "");
+        const done = status === "completed" || status === "failed" || status === "stopped";
+        if (!done || events.items.length === 0) {
+          pollTimer = setTimeout(() => void fetchAll(), 1500);
+        }
+      } catch {
+        if (!cancelled) setLoaded(true);
       }
-    })();
+    }
+
+    void fetchAll();
+    return () => {
+      cancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
   }, [simId]);
 
-  // Merge initial + live, deduplicate
+  // Merge polled + live WS events, dedup
   const allEvents = useMemo(() => {
     const seen = new Set<string>();
-    const merged = [...initialEvents, ...live.events];
+    const merged = [...polledEvents, ...live.events];
     return merged.filter(e => {
       if (seen.has(e.event_id)) return false;
       seen.add(e.event_id);
       return true;
     });
-  }, [initialEvents, live.events]);
+  }, [polledEvents, live.events]);
 
   const allDetections = useMemo(() => {
     const seen = new Set<string>();
-    const merged = [...initialDetections, ...live.detections];
+    const merged = [...polledDetections, ...live.detections];
     return merged.filter(d => {
       if (seen.has(d.detection_id)) return false;
       seen.add(d.detection_id);
       return true;
     }).sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0));
-  }, [initialDetections, live.detections]);
+  }, [polledDetections, live.detections]);
 
   // Filter out benign unless toggled
   const visibleEvents = useMemo(() => {
@@ -432,11 +453,14 @@ export default function SocConsole() {
     return [...filtered].reverse();
   }, [allEvents, showBenign]);
 
+  const leftResize = useResize({ initialSize: 320, min: 180, max: 560 });
+  const rightResize = useResize({ initialSize: 340, min: 200, max: 560 });
+
   if (!loaded) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3">
         <Radar className="h-10 w-10 animate-spin text-violet-500 opacity-60" style={{ animationDuration: "3s" }} />
-        <p className="text-sm text-slate-500">Initializing simulation…</p>
+        <p className="text-sm text-slate-500">Starting simulation…</p>
       </div>
     );
   }
@@ -450,10 +474,13 @@ export default function SocConsole() {
         scenarioTitle={scenarioTitle}
       />
 
-      {/* Three-pane layout */}
-      <div className="grid min-h-0 flex-1 grid-cols-[320px_1fr_340px]">
+      {/* Three-pane resizable layout */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* ── LEFT: Live event feed ── */}
-        <section className="flex min-h-0 flex-col border-r border-white/8">
+        <section
+          className="flex min-h-0 flex-col border-r border-white/8"
+          style={{ width: leftResize.size, flexShrink: 0 }}
+        >
           <div className="flex items-center justify-between border-b border-white/8 px-3 py-2">
             <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">Live Feed</h2>
             <button
@@ -472,9 +499,9 @@ export default function SocConsole() {
               <div className="flex flex-col items-center justify-center gap-2 p-10 text-center">
                 <Radar className="h-8 w-8 text-slate-700" />
                 <p className="text-sm text-slate-500">
-                  {live.status === "completed"
-                    ? "Simulation completed — no attack events"
-                    : "Watching for activity…"}
+                  {allEvents.length === 0 && (live.status === "running" || live.status === "connecting")
+                    ? "Simulation running — events will appear shortly…"
+                    : "No attack events — simulation only generated benign traffic"}
                 </p>
               </div>
             )}
@@ -489,8 +516,17 @@ export default function SocConsole() {
           </div>
         </section>
 
+        {/* ── Drag handle ── */}
+        <div
+          {...leftResize.handleProps}
+          className="group relative z-10 flex w-1 cursor-col-resize items-center justify-center bg-white/5 hover:bg-violet-500/60 active:bg-violet-400 transition-colors"
+          title="Drag to resize"
+        >
+          <div className="h-8 w-0.5 rounded-full bg-white/20 group-hover:bg-white/60 transition-colors" />
+        </div>
+
         {/* ── CENTER: AI Analyst ── */}
-        <section className="flex min-h-0 flex-col overflow-y-auto">
+        <section className="flex min-h-0 flex-col overflow-y-auto flex-1">
           <div className="border-b border-white/8 px-5 py-2">
             <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">AI Analyst</h2>
           </div>
@@ -500,15 +536,15 @@ export default function SocConsole() {
               <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
                 <div className="relative">
                   <ShieldCheck className="h-12 w-12 text-slate-700" />
-                  {live.status !== "completed" && (
+                  {allEvents.length === 0 || live.status === "running" || live.status === "connecting" ? (
                     <span className="absolute -right-1 -top-1 flex h-3 w-3">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
                       <span className="relative inline-flex h-3 w-3 rounded-full bg-green-500" />
                     </span>
-                  )}
+                  ) : null}
                 </div>
                 <p className="text-sm font-medium text-slate-400">
-                  {live.status === "completed" ? "No threats detected" : "Monitoring for threats…"}
+                  {live.status === "completed" && allEvents.length > 0 ? "No threats detected" : "Monitoring for threats…"}
                 </p>
                 <p className="max-w-xs text-xs text-slate-600">
                   The AI analyst correlates events across the attack graph to find malicious patterns.
@@ -531,8 +567,20 @@ export default function SocConsole() {
           </div>
         </section>
 
+        {/* ── Drag handle ── */}
+        <div
+          {...rightResize.handleProps}
+          className="group relative z-10 flex w-1 cursor-col-resize items-center justify-center bg-white/5 hover:bg-violet-500/60 active:bg-violet-400 transition-colors"
+          title="Drag to resize"
+        >
+          <div className="h-8 w-0.5 rounded-full bg-white/20 group-hover:bg-white/60 transition-colors" />
+        </div>
+
         {/* ── RIGHT: Inspector ── */}
-        <section className="flex min-h-0 flex-col border-l border-white/8">
+        <section
+          className="flex min-h-0 flex-col border-l border-white/8"
+          style={{ width: rightResize.size, flexShrink: 0 }}
+        >
           <div className="border-b border-white/8 px-3 py-2">
             <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">Inspector</h2>
           </div>

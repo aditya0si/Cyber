@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     llm_model_analysis: str = "gpt-4o"
     openai_api_key: str = ""
     anthropic_api_key: str = ""
+    # Ollama settings
+    ollama_base_url: str = "http://localhost:11434/v1"
+    ollama_api_key: str = "ollama"  # placeholder; Ollama doesn't require a real key
 
     knowledge_embed_model: str = "text-embedding-3-small"
 
