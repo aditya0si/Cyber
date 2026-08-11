@@ -230,6 +230,7 @@ async def _run_simulation(
             window_seq=0,
             env=env_graph,
         )
+        from cybersim.api.routers.detections import _to_detection_response
         for outcome in outcomes:
             if outcome.result.ok and outcome.proposal is not None:
                 proposal = outcome.proposal
@@ -238,7 +239,7 @@ async def _run_simulation(
                     channel,
                     {
                         "kind": "detection.created",
-                        "detection": proposal.model_dump(mode="json"),
+                        "detection": _to_detection_response(proposal).model_dump(mode="json"),
                     },
                 )
 
