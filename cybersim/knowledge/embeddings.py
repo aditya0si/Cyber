@@ -75,12 +75,15 @@ def build_embedder(*, provider: str = "hash", api_key: str = "") -> Any:
         return HashEmbedder()
     return OpenAIEmbedder(api_key=api_key)
 
+
 _ST_AVAILABLE = False
 try:
     from sentence_transformers import SentenceTransformer
+
     _ST_AVAILABLE = True
 except ImportError:
     pass
+
 
 class SentenceTransformerEmbedder(Embedder):
     """Uses a local sentence-transformer model for embeddings."""
@@ -96,11 +99,11 @@ class SentenceTransformerEmbedder(Embedder):
 
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
         embeddings = self._model.encode(texts, convert_to_numpy=True)
-        return [emb.tolist() for emb in embeddings] # type: ignore
+        return [emb.tolist() for emb in embeddings]
 
     def embed(self, text: str) -> list[float]:
         emb = self._model.encode(text, convert_to_numpy=True)
-        return emb.tolist() # type: ignore
+        return [float(v) for v in emb.tolist()]
 
 
 class TfidfEmbedder(Embedder):
@@ -108,6 +111,7 @@ class TfidfEmbedder(Embedder):
 
     def __init__(self, corpus_texts: list[str]) -> None:
         from sklearn.feature_extraction.text import TfidfVectorizer
+
         self._vectorizer = TfidfVectorizer()
         if corpus_texts:
             self._vectorizer.fit(corpus_texts)
@@ -124,12 +128,13 @@ class TfidfEmbedder(Embedder):
 
     def embed(self, text: str) -> list[float]:
         emb = self._vectorizer.transform([text]).toarray()[0]
-        return emb.tolist()
+        return [float(v) for v in emb.tolist()]
 
 
 def get_best_embedder(corpus_texts: list[str]) -> Embedder:
     """Returns SentenceTransformer if available, else TF-IDF fallback."""
     import logging
+
     if _ST_AVAILABLE:
         try:
             embedder = SentenceTransformerEmbedder("all-MiniLM-L6-v2")
@@ -137,7 +142,6 @@ def get_best_embedder(corpus_texts: list[str]) -> Embedder:
             return embedder
         except Exception as e:
             logging.warning(f"SentenceTransformer load failed: {e}. Falling back to TF-IDF.")
-            
+
     logging.info("Using TfidfEmbedder for RAG (fallback).")
     return TfidfEmbedder(corpus_texts)
-

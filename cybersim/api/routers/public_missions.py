@@ -156,9 +156,7 @@ async def execute_response(
     rec = _by_token(request, token)
     _check_rate_limit(token)
 
-    matched = any(
-        _to_detection_response(d).detection_id == detection_id for d in rec.detections
-    )
+    matched = any(_to_detection_response(d).detection_id == detection_id for d in rec.detections)
     if not matched:
         raise AppError(ErrorCode.DETECTION_NOT_FOUND, f"No detection {detection_id!r}.")
 

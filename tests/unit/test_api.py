@@ -25,9 +25,7 @@ from cybersim.api.main import create_app
 
 
 @contextmanager
-def _receive_timeout(
-    ws: Any, timeout_sec: float = 5.0
-) -> Iterator[Callable[[], Any]]:
+def _receive_timeout(ws: Any, timeout_sec: float = 5.0) -> Iterator[Callable[[], Any]]:
     """Yield a bounded `receive()` so a hung hub flush fails fast.
 
     A daemon thread owns `ws.receive_text()`; the caller reads from a queue
@@ -352,8 +350,7 @@ def test_ws_ticket_and_sim_channel(client: TestClient) -> None:
                         seen_detection = True
                         break
                     if frame.get("kind") == "event.batch" and any(
-                        f.get("kind") == "detection.created"
-                        for f in frame.get("frames", [])
+                        f.get("kind") == "detection.created" for f in frame.get("frames", [])
                     ):
                         seen_detection = True
                         break

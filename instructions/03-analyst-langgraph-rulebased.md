@@ -167,6 +167,7 @@ looks to judges.
 ```python
 # Primary path
 from sentence_transformers import SentenceTransformer
+
 model = SentenceTransformer("all-MiniLM-L6-v2")  # downloaded once at setup
 # embed corpus once at startup, cache in memory
 # embed query (threat category description), cosine similarity, top-k

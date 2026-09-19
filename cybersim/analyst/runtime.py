@@ -62,11 +62,7 @@ class AnalystRuntime:
             return None
         return max(
             outcomes,
-            key=lambda o: (
-                _severity_rank(o.proposal.severity)
-                if o.proposal is not None
-                else -1
-            ),
+            key=lambda o: _severity_rank(o.proposal.severity) if o.proposal is not None else -1,
         )
 
     def ingest_window_all(

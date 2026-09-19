@@ -7,8 +7,8 @@ from typing import Any
 
 from cybersim.analyst.llm.client import LLMClient
 from cybersim.analyst.llm.fake_client import FakeLLMClient
-from cybersim.analyst.llm.openai_client import OpenAIClient
 from cybersim.analyst.llm.ollama_client import OllamaClient
+from cybersim.analyst.llm.openai_client import OpenAIClient
 
 
 @dataclass(frozen=True)

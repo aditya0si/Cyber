@@ -32,9 +32,7 @@ def event_ingestion(state: AnalystState) -> dict[str, Any]:
     dominant = "info"
     for e in events:
         sev = e.raw_context.get("severity_hint", "info")
-        rank = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}.get(
-            sev, 0
-        )
+        rank = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}.get(sev, 0)
         cur = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}.get(dominant, 0)
         if rank > cur:
             dominant = sev
@@ -65,7 +63,9 @@ def candidate_group(state: AnalystState) -> dict[str, Any]:
 
     best: list[CanonicalEvent] = []
     for group in groups.values():
-        if any(e.raw_context.get("subtype") in SUBTYPE_TO_THREATCLASS for e in group) and len(group) > len(best):
+        if any(e.raw_context.get("subtype") in SUBTYPE_TO_THREATCLASS for e in group) and len(
+            group
+        ) > len(best):
             best = group
     state["candidate"] = best
     return dict(state)
@@ -88,7 +88,11 @@ def threat_detection(state: AnalystState, *, llm: Any, tools: AnalystTools) -> d
             "attack_stage": e.raw_context.get("attack_stage"),
             "mitre_techniques": list(e.raw_context.get("mitre_techniques", [])),
             "correlation_key": e.raw_context.get("correlation_key"),
-            "payload_summary": {k: v for k, v in e.raw_context.get("payload", {}).items() if k not in ("headers", "body")},
+            "payload_summary": {
+                k: v
+                for k, v in e.raw_context.get("payload", {}).items()
+                if k not in ("headers", "body")
+            },
         }
         for e in events[:40]
     ]
@@ -128,7 +132,10 @@ def threat_detection(state: AnalystState, *, llm: Any, tools: AnalystTools) -> d
     # suspicious even if the LLM hedged (docs/11 §3.3 — overrule both ways).
     if not suspicious:
         for e in events:
-            if e.raw_context.get("severity_hint", "info") in ("high", "critical") and not e.raw_context.get("benign", False):
+            if e.raw_context.get("severity_hint", "info") in (
+                "high",
+                "critical",
+            ) and not e.raw_context.get("benign", False):
                 suspicious = True
                 threat_class = threat_class or ThreatClass.BENIGN
                 break

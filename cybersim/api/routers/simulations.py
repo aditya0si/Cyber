@@ -231,6 +231,7 @@ async def _run_simulation(
             env=env_graph,
         )
         from cybersim.api.routers.detections import _to_detection_response
+
         for outcome in outcomes:
             if outcome.result.ok and outcome.proposal is not None:
                 proposal = outcome.proposal
@@ -294,17 +295,20 @@ async def list_events(
     rec = store.get(current.org_id, sim_id)
     if rec is None:
         raise AppError(ErrorCode.SIM_NOT_FOUND, f"No simulation {sim_id!r}.")
-    events = rec.events[cursor : cursor + limit]
+    # `category`/`benign` are carried in raw_context (CanonicalEvent itself only
+    # exposes the 8 contract fields, docs/00 §5); `severity` is the contract field.
+    page = rec.events[cursor : cursor + limit]
+    events = page
     if category:
-        events = [e for e in events if e.category.value == category]
+        events = [e for e in events if e.raw_context.get("category") == category]
     if severity:
-        events = [e for e in events if e.severity_hint.value == severity]
+        events = [e for e in events if e.severity == severity]
     if benign is not None:
-        events = [e for e in events if e.benign == benign]
+        events = [e for e in events if bool(e.raw_context.get("benign", False)) == benign]
     return {
         "items": [e.model_dump(mode="json") for e in events],
-        "cursor": cursor + len(events),
-        "has_more": cursor + len(events) < len(rec.events),
+        "cursor": cursor + len(page),
+        "has_more": cursor + len(page) < len(rec.events),
         "total": len(rec.events),
     }
 
