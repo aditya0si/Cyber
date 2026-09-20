@@ -87,7 +87,7 @@ def _dict_to_canonical(data: dict[str, Any]) -> CanonicalEvent:
         event_id=data["event_id"],
         timestamp=data["timestamp"],
         event_type=data["event_type"],
-        severity=data["severity"],  # type: ignore[arg-type]
+        severity=data["severity"],
         source_ip=data["source_ip"],
         target_asset=data["target_asset"],
         actor=data["actor"],

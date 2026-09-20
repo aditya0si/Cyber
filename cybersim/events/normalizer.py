@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from cybersim.events.mapping import normalize_lookup
-from cybersim.events.schema import CanonicalEvent, assemble
+from cybersim.events.schema import CanonicalEvent
 from cybersim.events.types import AttackStage, EventCategory, Severity
 from cybersim.graph.mitre import MITRE_MAP, ThreatClass
 from cybersim.graph.types import EnvironmentGraph
@@ -138,16 +138,17 @@ class Normalizer:
 
         seq = self._next_seq(simulation_id)
         import datetime
-        dt = datetime.datetime.fromtimestamp(raw.sim_time_ms / 1000.0, tz=datetime.timezone.utc)
+
+        dt = datetime.datetime.fromtimestamp(raw.sim_time_ms / 1000.0, tz=datetime.UTC)
         sev_str = severity_hint.value.upper()
         if sev_str == "INFO":
             sev_str = "LOW"
-        
+
         return CanonicalEvent(
             event_id=raw.id,
             timestamp=dt.isoformat(),
             event_type=raw.type,
-            severity=sev_str,  # type: ignore[arg-type]
+            severity=sev_str,
             source_ip=raw.src_ip or "unknown",
             target_asset=raw.node_ref or "unknown",
             actor=raw.payload.get("username", raw.payload.get("account_id", "unknown")),
@@ -420,7 +421,8 @@ class Normalizer:
         """Drop unknown raw types into a SYSTEM 'unknown_raw_type' event."""
         seq = self._next_seq(simulation_id)
         import datetime
-        dt = datetime.datetime.fromtimestamp(raw.sim_time_ms / 1000.0, tz=datetime.timezone.utc)
+
+        dt = datetime.datetime.fromtimestamp(raw.sim_time_ms / 1000.0, tz=datetime.UTC)
         return CanonicalEvent(
             event_id=raw.id,
             timestamp=dt.isoformat(),
@@ -444,7 +446,7 @@ class Normalizer:
                 "raw_ref": raw.id,
                 "correlation_key": None,
                 "benign": False,
-            }
+            },
         )
 
 

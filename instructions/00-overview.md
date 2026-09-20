@@ -133,15 +133,15 @@ don't invent a second schema):
 
 ```python
 {
-  "event_id": str,
-  "timestamp": str,          # ISO 8601
-  "event_type": str,         # e.g. "LOGIN_FAILED", "LOGIN_SUCCESS",
-                              # "PRIVILEGE_ESCALATION", "DB_ACCESS"
-  "severity": str,            # "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
-  "source_ip": str,
-  "target_asset": str,        # e.g. "auth-api", "app-server", "database"
-  "actor": str,                # user/account identifier involved
-  "raw_context": dict          # any extra fields specific to the event type
+    "event_id": str,
+    "timestamp": str,  # ISO 8601
+    "event_type": str,  # e.g. "LOGIN_FAILED", "LOGIN_SUCCESS",
+    # "PRIVILEGE_ESCALATION", "DB_ACCESS"
+    "severity": str,  # "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+    "source_ip": str,
+    "target_asset": str,  # e.g. "auth-api", "app-server", "database"
+    "actor": str,  # user/account identifier involved
+    "raw_context": dict,  # any extra fields specific to the event type
 }
 ```
 

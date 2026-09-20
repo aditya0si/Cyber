@@ -23,6 +23,7 @@ from cybersim.graph.types import (
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
+
 def _ensure_node(
     repo: GraphRepository,
     sim_id: str,
@@ -48,6 +49,7 @@ def _ensure_node(
 
 
 # ── main dispatcher ───────────────────────────────────────────────────────────
+
 
 def apply_event_to_graph(
     event: CanonicalEvent,
@@ -286,6 +288,7 @@ def _handle_data_transfer(
 
 # ── response actions (PROTOCOL-ONLY, no direct NetworkX access) ───────────────
 
+
 def apply_response_actions(
     repo: GraphRepository,
     sim_id: str,
@@ -402,9 +405,7 @@ def _quarantine_compromised(repo: GraphRepository, sim_id: str) -> None:
         for node in repo.find_nodes_by_kind(sim_id, kind):
             if node.foothold_state == FootholdState.COMPROMISED:
                 flags = {"status": "isolated"} if kind == NodeKind.USER else None
-                repo.update_foothold(
-                    sim_id, node.node_id, FootholdState.CONTAINED, flags=flags
-                )
+                repo.update_foothold(sim_id, node.node_id, FootholdState.CONTAINED, flags=flags)
 
 
 def _rotate_credentials(repo: GraphRepository, sim_id: str) -> None:

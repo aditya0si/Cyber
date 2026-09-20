@@ -354,7 +354,9 @@ async def test_consumer_normalizes_web_sim_raw_events_in_memory(finbank_env: obj
     assert EventCategory.HTTP in categories
     assert EventCategory.DATABASE in categories
     # At least one event should have been promoted to sql_injection_indicator
-    sqli_indicator_count = sum(1 for ce in sink.events if ce.raw_context.get("subtype") == "sql_injection_indicator")
+    sqli_indicator_count = sum(
+        1 for ce in sink.events if ce.raw_context.get("subtype") == "sql_injection_indicator"
+    )
     assert sqli_indicator_count > 0, (
         "expected at least one sql_injection_indicator normalized event"
     )

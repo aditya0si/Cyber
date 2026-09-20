@@ -6,7 +6,6 @@ import pytest
 
 from cybersim.events.bus import InMemoryEventBus
 from cybersim.events.schema import CanonicalEvent
-from cybersim.events.types import EventCategory, Severity
 from cybersim.simulation.base import RawEvent
 
 # ---------- Raw event round-trip ----------

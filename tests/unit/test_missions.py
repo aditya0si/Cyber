@@ -6,6 +6,7 @@ import time
 from typing import Any
 
 import pytest
+from fastapi.testclient import TestClient
 
 from cybersim.api.main import create_app
 from cybersim.events.schema import assemble
@@ -349,6 +350,4 @@ def test_public_share_token_not_required_for_other_routes() -> None:
 
     client = TestClient(_ca())
     _mission_record(client, "pub-tok-3")
-    assert (
-        client.get("/v1/public/simulations/pub-tok-3/score").status_code == 200
-    )
+    assert client.get("/v1/public/simulations/pub-tok-3/score").status_code == 200

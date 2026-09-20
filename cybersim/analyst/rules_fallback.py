@@ -63,8 +63,14 @@ _TITLE_MAP: dict[ThreatClass, str] = {
 # these against the graph via `apply_response_actions` (event_mutator.py).
 _RESPONSE_PLANS: dict[ThreatClass, tuple[tuple[str, str], ...]] = {
     ThreatClass.CREDENTIAL_BRUTE_FORCE: (
-        ("isolate_account", "Isolate the targeted account — prevents further brute-force lockout escalation"),
-        ("revoke_sessions", "Revoke active sessions — closes access opened by a guessed credential"),
+        (
+            "isolate_account",
+            "Isolate the targeted account — prevents further brute-force lockout escalation",
+        ),
+        (
+            "revoke_sessions",
+            "Revoke active sessions — closes access opened by a guessed credential",
+        ),
         ("rotate_credentials", "Rotate credentials — invalidates leaked or guessed credentials"),
         ("block_source_ip", "Block the attacker source IP at the edge"),
     ),
@@ -72,7 +78,10 @@ _RESPONSE_PLANS: dict[ThreatClass, tuple[tuple[str, str], ...]] = {
         ("isolate_account", "Isolate the compromised account — prevents further lateral movement"),
         ("revoke_sessions", "Revoke active sessions — closes existing access"),
         ("rotate_credentials", "Rotate credentials — invalidates the leaked credential"),
-        ("block_database", "Block database access from the compromised session — limits data exposure"),
+        (
+            "block_database",
+            "Block database access from the compromised session — limits data exposure",
+        ),
     ),
     ThreatClass.PRIVILEGE_ESCALATION: (
         ("isolate_account", "Isolate the account that gained elevated privileges"),
@@ -113,7 +122,9 @@ def _correlation_groups(
 ) -> list[tuple[str | None, list[CanonicalEvent]]]:
     """Group non-benign events from the SAME correlation_key."""
     nonbenign = [e for e in window if not e.raw_context.get("benign", False)]
-    sorted_ = sorted(nonbenign, key=lambda e: str(e.raw_context.get("correlation_key") or "<no-key>"))
+    sorted_ = sorted(
+        nonbenign, key=lambda e: str(e.raw_context.get("correlation_key") or "<no-key>")
+    )
     out: list[tuple[str | None, list[CanonicalEvent]]] = []
     for key, group_iter in groupby(sorted_, key=lambda e: e.raw_context.get("correlation_key")):
         out.append((key if key != "<no-key>" else None, list(group_iter)))
@@ -129,9 +140,11 @@ def _top_threat_class(group: list[CanonicalEvent]) -> ThreatClass | None:
         ThreatClass.SQL_INJECTION: 3,
         ThreatClass.CREDENTIAL_BRUTE_FORCE: 2,
     }
-    classes = [
-        SUBTYPE_TO_THREATCLASS[e.raw_context.get("subtype")] for e in group if e.raw_context.get("subtype") in SUBTYPE_TO_THREATCLASS
-    ]
+    classes: list[ThreatClass] = []
+    for e in group:
+        subtype = e.raw_context.get("subtype")
+        if isinstance(subtype, str) and subtype in SUBTYPE_TO_THREATCLASS:
+            classes.append(SUBTYPE_TO_THREATCLASS[subtype])
     if not classes:
         return None
     return max(classes, key=lambda c: rank_order.get(c, 0))
@@ -161,7 +174,11 @@ def _build_evidence(threat_class: ThreatClass, group: list[CanonicalEvent]) -> l
     rule, docs/11 §3.9-2). Relevant evidence categories per Fallal docs/11
     §3.5: event_burst, behavioral_signature, credential_state, graph_traversal.
     """
-    by_subtype = {e.raw_context.get("subtype"): e for e in group if e.raw_context.get("subtype") in SUBTYPE_TO_THREATCLASS}
+    by_subtype = {
+        e.raw_context.get("subtype"): e
+        for e in group
+        if e.raw_context.get("subtype") in SUBTYPE_TO_THREATCLASS
+    }
     items: list[EvidenceItem] = []
 
     # Evidence 1: event burst (auth.attempt count or burst count)
@@ -191,7 +208,10 @@ def _build_evidence(threat_class: ThreatClass, group: list[CanonicalEvent]) -> l
     # Evidence N: privileged credential state — auth.success with new_geo or admin scope
     auth_success = None
     for e in group:
-        if e.raw_context.get("raw_type") == "auth.success" and e.raw_context.get("subtype") == "auth_success_after_burst":
+        if (
+            e.raw_context.get("raw_type") == "auth.success"
+            and e.raw_context.get("subtype") == "auth_success_after_burst"
+        ):
             auth_success = e
             break
     if auth_success is None:
@@ -213,7 +233,12 @@ def _build_evidence(threat_class: ThreatClass, group: list[CanonicalEvent]) -> l
         )
     # Evidence N+1: exfil-candidate db.query
     exfil = next(
-        (e for e in group if e.raw_context.get("raw_type") == "db.query" and e.raw_context.get("subtype") == "exfil_candidate_query"),
+        (
+            e
+            for e in group
+            if e.raw_context.get("raw_type") == "db.query"
+            and e.raw_context.get("subtype") == "exfil_candidate_query"
+        ),
         None,
     )
     if exfil:

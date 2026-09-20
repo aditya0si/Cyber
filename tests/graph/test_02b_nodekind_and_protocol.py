@@ -9,8 +9,8 @@ import pytest
 from cybersim.analyst.dto import RecommendedAction
 from cybersim.events.schema import assemble
 from cybersim.graph.event_mutator import apply_event_to_graph, apply_response_actions
-from cybersim.graph.repo_nx import NetworkXGraphRepository
 from cybersim.graph.repo import GraphRepository
+from cybersim.graph.repo_nx import NetworkXGraphRepository
 from cybersim.graph.types import FootholdState, NodeKind
 from cybersim.simulation.scenario import CredentialCompromiseScenario
 from cybersim.simulation.web.simulator import build_environment_graph
@@ -33,6 +33,7 @@ def sim_id():
 
 # ── Test 1 ─────────────────────────────────────────────────────────────────────
 
+
 def test_nodekind_includes_user_attack_event_vulnerability():
     """NodeKind enum must contain all four overlay-layer types from 00 §Section 6."""
     required = {"USER", "ATTACK", "EVENT", "VULNERABILITY"}
@@ -42,6 +43,7 @@ def test_nodekind_includes_user_attack_event_vulnerability():
 
 
 # ── Test 2 ─────────────────────────────────────────────────────────────────────
+
 
 def test_credential_compromise_scenario_creates_user_and_attack_nodes(repo, env, sim_id):
     """Running the 01 scenario through the graph layer must create USER and ATTACK nodes."""
@@ -68,37 +70,40 @@ def test_credential_compromise_scenario_creates_user_and_attack_nodes(repo, env,
 
 # ── Test 3 ─────────────────────────────────────────────────────────────────────
 
+
 def test_apply_response_actions_uses_protocol_only():
     """apply_response_actions must not reference _require, .env, or .overlay as code."""
     import re
+
     import cybersim.graph.event_mutator as _mut_module
 
     full_source = inspect.getsource(_mut_module)
 
     # Strip docstrings and comments before checking — we only care about code
     # Use a simple heuristic: remove triple-quoted strings and # lines
-    code_only = re.sub(r'""".*?"""', '', full_source, flags=re.DOTALL)
-    code_only = re.sub(r"'''.*?'''", '', code_only, flags=re.DOTALL)
-    code_only = re.sub(r'#.*', '', code_only)
+    code_only = re.sub(r'""".*?"""', "", full_source, flags=re.DOTALL)
+    code_only = re.sub(r"'''.*?'''", "", code_only, flags=re.DOTALL)
+    code_only = re.sub(r"#.*", "", code_only)
 
     # These must not appear in executable code
     forbidden_patterns = [
-        r'\._require\(',          # calling private method
-        r'\.env\.nodes',          # direct NX env access
-        r'\.env\.edges',
-        r'\.overlay\.nodes',      # direct NX overlay access
-        r'\.overlay\.edges',
-        r'\.overlay\.remove_edge',
+        r"\._require\(",  # calling private method
+        r"\.env\.nodes",  # direct NX env access
+        r"\.env\.edges",
+        r"\.overlay\.nodes",  # direct NX overlay access
+        r"\.overlay\.edges",
+        r"\.overlay\.remove_edge",
     ]
     for pattern in forbidden_patterns:
         match = re.search(pattern, code_only)
         assert match is None, (
             f"event_mutator.py code contains forbidden bypass pattern {pattern!r} "
-            f"at position {match.start()}: ...{code_only[max(0,match.start()-40):match.end()+40]!r}..."
+            f"at position {match.start()}: ...{code_only[max(0, match.start() - 40) : match.end() + 40]!r}..."
         )
 
 
 # ── Test 3b ────────────────────────────────────────────────────────────────────
+
 
 def test_apply_response_actions_mock_boundary():
     """Hermetic mock-boundary proof: apply_response_actions only calls real protocol methods.
@@ -108,8 +113,8 @@ def test_apply_response_actions_mock_boundary():
     attribute — raises AttributeError immediately, catching alias tricks the
     regex test cannot.
     """
-    from unittest.mock import MagicMock, call
-    from cybersim.graph.repo import GraphRepository
+    from unittest.mock import MagicMock
+
     from cybersim.graph.types import FootholdState, GraphNode, NodeKind
 
     mock_repo = MagicMock(spec=GraphRepository)
@@ -124,6 +129,7 @@ def test_apply_response_actions_mock_boundary():
         attrs={"status": "compromised"},
         foothold_state=FootholdState.COMPROMISED,
     )
+
     # For block_database: no DATA nodes in this fixture.
     # find_nodes_by_kind is called with (sim_id, NodeKind.USER) and (sim_id, NodeKind.CREDENTIAL)
     # for isolate_account, so we need to route by kind argument.
@@ -157,18 +163,31 @@ def test_apply_response_actions_mock_boundary():
     # Must NOT have called anything outside the protocol surface.
     # The full protocol method set:
     protocol_methods = {
-        "create", "load", "drop",
-        "upsert_node", "upsert_edge", "deactivate_edge", "update_foothold",
-        "append_overlay", "add_overlay_edge",
-        "get_node", "get_edges", "neighbors", "can_reach", "attack_paths",
-        "graph_view", "snapshot", "delta",
-        "find_nodes_by_kind", "find_overlay_edges", "remove_overlay_edge",
+        "create",
+        "load",
+        "drop",
+        "upsert_node",
+        "upsert_edge",
+        "deactivate_edge",
+        "update_foothold",
+        "append_overlay",
+        "add_overlay_edge",
+        "get_node",
+        "get_edges",
+        "neighbors",
+        "can_reach",
+        "attack_paths",
+        "graph_view",
+        "snapshot",
+        "delta",
+        "find_nodes_by_kind",
+        "find_overlay_edges",
+        "remove_overlay_edge",
     }
     non_protocol_calls = called_methods - protocol_methods
     assert not non_protocol_calls, (
         f"apply_response_actions called non-protocol methods: {non_protocol_calls}"
     )
-
 
 
 def test_containment_updates_reflected_via_protocol_query(repo, env, sim_id):
@@ -204,12 +223,16 @@ def test_containment_updates_reflected_via_protocol_query(repo, env, sim_id):
     assert user_node.foothold_state == FootholdState.COMPROMISED
 
     # Run containment
-    apply_response_actions(repo, sim_id, [RecommendedAction(action_id="isolate_account", order=1, rationale="test")])
+    apply_response_actions(
+        repo, sim_id, [RecommendedAction(action_id="isolate_account", order=1, rationale="test")]
+    )
 
     # Query back through protocol — must see isolation
     user_nodes = repo.find_nodes_by_kind(sim_id, NodeKind.USER)
     isolated = [n for n in user_nodes if n.attrs.get("status") == "isolated"]
-    assert len(isolated) > 0, "Expected at least one USER node with status=isolated after containment"
+    assert len(isolated) > 0, (
+        "Expected at least one USER node with status=isolated after containment"
+    )
 
     # Also verify via get_node
     user_after = repo.get_node(sim_id, "user_admin")
